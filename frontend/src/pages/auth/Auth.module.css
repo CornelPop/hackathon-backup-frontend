@@ -1,0 +1,55 @@
+.layout {
+    min-height: 100vh;
+    background: transparent;
+}
+
+.gradient {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(
+            225deg,
+            #e6f4ff 0%,
+            #d6ecff 20%,
+            #bfe3ff 40%,
+            #a6d8ff 60%,
+            #8ecfff 80%,
+            #7fc8ff 100%
+    );
+}
+
+.blurOverlay {
+    position: fixed;
+    inset: 0;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.centerWrap {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.card {
+    width: 420px;
+    max-width: 100%;
+    border-radius: 16px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08),
+    0 6px 6px rgba(0, 0, 0, 0.06);
+    backdrop-filter: saturate(140%);
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.footerText {
+    text-align: center;
+    margin-top: 16px;
+    color: rgba(0, 0, 0, 0.45);
+}
