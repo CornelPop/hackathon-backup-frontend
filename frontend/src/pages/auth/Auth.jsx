@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Layout,
     Card,
@@ -20,12 +21,18 @@ import styles from "./Auth.module.css";
 const { Title, Text } = Typography;
 
 const AuthPage = () => {
+    const navigate = useNavigate();
+
+    const goHome = () => navigate('/payments');
+
     const onLogin = (values) => {
         console.log("Login:", values);
+        goHome();
     };
 
     const onSignup = (values) => {
         console.log("Sign up:", values);
+        goHome();
     };
 
     return (

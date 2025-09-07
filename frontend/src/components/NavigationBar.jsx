@@ -4,6 +4,7 @@ import {
     CustomerServiceOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
+    RobotOutlined,
 } from "@ant-design/icons";
 import React, { useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -20,7 +21,8 @@ export default function NavigationBar({ collapsed, onCollapse, topOffset = 72 })
 
     const activeItem = useMemo(() => {
         if (location.pathname.startsWith("/payments")) return "payments";
-        if (location.pathname.startsWith("/support")) return "support";
+    if (location.pathname.startsWith("/support")) return "support";
+    if (location.pathname.startsWith("/ai")) return "ai";
         return "";
     }, [location.pathname]);
 
@@ -36,6 +38,12 @@ export default function NavigationBar({ collapsed, onCollapse, topOffset = 72 })
             icon: <CustomerServiceOutlined />,
             label: "Support",
             onClick: () => navigate("/support"),
+        },
+        {
+            key: "ai",
+            icon: <RobotOutlined />,
+            label: "AI Chat",
+            onClick: () => navigate("/ai"),
         },
     ];
 
