@@ -1,5 +1,4 @@
-import React, {useState} from "react";
-import {Layout, Typography, Descriptions, Space, Button, Tag, theme, message} from "antd";
+import {Layout, Typography, Descriptions, Space, Button, Tag, theme} from "antd";
 import {useParams, useNavigate} from "react-router-dom";
 import {CustomerServiceOutlined, ArrowLeftOutlined} from "@ant-design/icons";
 import CustomHeader from "../../components/CustomHeader.jsx";
@@ -11,9 +10,6 @@ const {Title, Text} = Typography;
 export default function PaymentDetails() {
     const {transactionId} = useParams();
     const navigate = useNavigate();
-
-    const [collapsed, setCollapsed] = useState(false);
-    const [activeItem, setActiveItem] = useState("payments");
 
     const {
         token: {colorBgLayout},
@@ -45,7 +41,6 @@ export default function PaymentDetails() {
     return (
         <Content
             style={{
-                padding: 24,
                 overflow: "auto",
                 background: colorBgLayout,
                 minHeight: 0,
@@ -91,11 +86,10 @@ export default function PaymentDetails() {
                     <Button
                         type="primary"
                         icon={<CustomerServiceOutlined/>}
-                        onClick={() => navigate("/support")}
+                        onClick={() => navigate("/ai")}
                     >
-                        Contact Support
+                        Dispute
                     </Button>
-                    <Button danger onClick={() => message.warning("Marked for review.")}>Mark as Suspicious</Button>
                 </Space>
             </Space>
         </Content>

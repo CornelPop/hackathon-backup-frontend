@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
 import Payments from "./pages/payments/Payments";
 import PaymentDetailsPage from "./pages/payments/PaymentDetails";
-import SupportPage from "./pages/aiassistant/AIAssistant";
 import AuthPage from "./pages/auth/Auth";
 import AIChatPlaceholder from "./pages/aiassistant/AIChatPlaceholder.jsx";
 import CasesPage from './pages/cases/Cases';
@@ -24,7 +23,6 @@ export default function App() {
                     <Route path="/cases" element={<CasesPage />} />
                     <Route path="/cases/:caseId" element={<CaseDetails />} />
                     <Route path="/cases/analytics" element={<AnalyticsPage />} />
-                    <Route path="/support" element={<SupportPage />} />
                     <Route path="/ai" element={<AIChatPlaceholder />} />
                 </Route>
                 {/* Catch-all: if user types an unknown path, send to auth */}

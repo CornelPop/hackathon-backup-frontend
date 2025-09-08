@@ -3,11 +3,13 @@ import {
     Layout,
     Typography,
     Segmented,
-    Row, Col, theme,
+    Row, Col, theme, Input,
 } from "antd";
 import InvoiceCard from "../../components/InvoiceCard.jsx";
 import CustomHeader from "../../components/CustomHeader.jsx";
 import NavigationBar from "../../components/NavigationBar.jsx";
+import Title from "antd/es/skeleton/Title.js";
+import {SearchOutlined} from "@ant-design/icons";
 
 const {Content} = Layout;
 const {Text} = Typography;
@@ -43,9 +45,6 @@ const MOCK_INVOICES = Array.from({length: 28}).map((_, i) => {
 export default function Payments({invoices = MOCK_INVOICES, onPay}) {
     const [q, setQ] = useState("");
     const [filter, setFilter] = useState("ALL");
-    const [collapsed, setCollapsed] = useState(false);
-    const [activeItem, setActiveItem] = useState(false);
-    const [modalOpen, setModalOpen] = useState(false);
 
     const {
         token: {colorBgLayout},
@@ -58,28 +57,49 @@ export default function Payments({invoices = MOCK_INVOICES, onPay}) {
         return pool.filter((i) =>
             [i.id, i.label, i.amount.toString()].some((s) => String(s).toLowerCase().includes(query))
         );
-    }, [q, filter, invoices]);
+    }, [filter, invoices, q]);
 
     return (
         <Content
             style={{
-                padding: 24,
-                overflow: "auto",   // single scroll container
+                overflow: "auto",
                 background: colorBgLayout,
                 minHeight: 0,
-                minWidth: 0,        // prevents horizontal overflow when sider collapses
+                minWidth: 0,
             }}
         >
-            <div style={{display: "flex", gap: 12, alignItems: "center", marginBottom: 24}}>
-                <Segmented
-                    value={filter}
-                    onChange={(val) => setFilter(val)}
-                    options={["ALL", "OPEN", "SUCCESSFUL", "FLAGGED", "FAILED"]}
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: 24,
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                    paddingInline: 12,
+                }}
+            >
+                <div style={{ display: "flex", alignItems: "center", gap: 1, minWidth: 280 }}>
+                    <Segmented
+                        value={filter}
+                        onChange={(val) => setFilter(String(val))}
+                        options={["ALL", "OPEN", "SUCCESSFUL", "FLAGGED", "FAILED"]}
+                        size="large"
+                    />
+                    <Text type="secondary">
+                        {filtered.length} result{filtered.length === 1 ? "" : "s"}
+                    </Text>
+                </div>
+
+                <Input
+                    allowClear
                     size="large"
+                    prefix={<SearchOutlined />}
+                    placeholder="Search invoices (ID or description)"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    style={{ maxWidth: 360, flex: "1 1 300px" }}
                 />
-                <Text type="secondary" style={{marginLeft: 8}}>
-                    {filtered.length} result{filtered.length === 1 ? "" : "s"}
-                </Text>
             </div>
 
             <div style={{width: '100%', paddingInline: 12}}>
@@ -95,5 +115,4 @@ export default function Payments({invoices = MOCK_INVOICES, onPay}) {
             </div>
         </Content>
     );
-
 }

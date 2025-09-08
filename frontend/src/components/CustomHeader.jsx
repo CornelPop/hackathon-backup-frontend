@@ -9,14 +9,14 @@ import {
     Form,
     message,
     Select,
-    theme,
+    theme, Image,
 } from "antd";
 import {
-    CreditCardOutlined,
     PlusOutlined,
     SearchOutlined,
 } from "@ant-design/icons";
 import ThemeSwitcher from "./ThemeSwitcher.jsx";
+import img from "../assets/images/placeholder logo.jpg";
 
 const { Header } = Layout;
 const { Title, Text } = Typography;
@@ -49,7 +49,7 @@ const merchantCategoryOptions = [
 
 const paymentChannels = ["Bank Transfer", "Card", "Cash"];
 
-export default function CustomHeader({ q, onSearch, sticky = true }) {
+export default function CustomHeader({ sticky = true }) {
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [form] = Form.useForm();
@@ -91,27 +91,20 @@ export default function CustomHeader({ q, onSearch, sticky = true }) {
                     gap: 16,
                     alignItems: "center",
                     background: colorBgContainer,
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.36)",
                     paddingInline: 24,
                     height: 72,
                 }}
             >
-                <Space size={12} align="center" style={{ flex: 1, minWidth: 0 }}>
-                    <CreditCardOutlined style={{ fontSize: 20, color: colorPrimary }} />
-                    <Title level={4} style={{ margin: 0 }}>
-                        Logo
-                    </Title>
-                </Space>
-
-                <Input
-                    allowClear
-                    size="large"
-                    prefix={<SearchOutlined />}
-                    placeholder="Search invoices (ID or description)"
-                    value={q.value}
-                    onChange={(e) => onSearch?.(e.target.value)}
-                    style={{ maxWidth: 300 }}
-                />
+                <div style={{ flex: 1 }}>
+                    <Image
+                        src={img}
+                        alt="Logo"
+                        preview={false}
+                        height={50}
+                        style={{ objectFit: "contain" }}
+                    />
+                </div>
 
                 <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleOpen}>
                     New invoice

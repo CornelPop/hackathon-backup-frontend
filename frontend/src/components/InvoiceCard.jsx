@@ -125,7 +125,7 @@ export default function InvoiceCard({ item, onPay }) {
                             block
                             icon={<CustomerServiceOutlined />}
                             style={{ borderRadius: 10 }}
-                            onClick={() => navigate("/support")}
+                            onClick={() => navigate("/ai", { state: { item: item } }) }
                         >
                             Dispute
                         </Button>

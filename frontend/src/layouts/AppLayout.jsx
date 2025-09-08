@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Layout, theme } from "antd";
-import { Outlet } from "react-router-dom";
+import {Outlet, useLocation} from "react-router-dom";
 import CustomHeader from "../components/CustomHeader";
 import NavigationBar from "../components/NavigationBar";
 
@@ -8,8 +8,11 @@ const { Content } = Layout;
 
 export default function AppLayout() {
     const [collapsed, setCollapsed] = useState(false);
-    const [q, setQ] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
+
+    const location = useLocation();
+
+    const isAiPage = location.pathname.startsWith("/ai");
 
     const {
         token: { colorBgLayout },
@@ -18,8 +21,6 @@ export default function AppLayout() {
     return (
         <Layout style={{ minHeight: "100vh" }}>
             <CustomHeader
-                q={{ value: q }}
-                onSearch={setQ}
                 onNew={() => setModalOpen(true)}
             />
 
@@ -31,8 +32,8 @@ export default function AppLayout() {
 
                 <Content
                     style={{
-                        padding: 24,
-                        overflow: "auto",
+                        padding: isAiPage ? 0 : 24,
+                        //overflow: "auto",
                         background: colorBgLayout,
                         minHeight: 0,
                         minWidth: 0,
