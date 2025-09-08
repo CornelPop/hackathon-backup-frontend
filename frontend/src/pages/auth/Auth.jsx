@@ -37,11 +37,9 @@ const AuthPage = () => {
 
     return (
         <Layout className={styles.layout}>
-            {/* Background layers */}
             <div className={styles.gradient} />
             <div className={styles.blurOverlay} />
 
-            {/* Centered content */}
             <div className={styles.centerWrap}>
                 <Row justify="center" style={{ width: "100%" }}>
                     <Col>
@@ -67,7 +65,7 @@ const AuthPage = () => {
                                                 layout="vertical"
                                                 onFinish={onLogin}
                                                 requiredMark={false}
-                                                size="large"
+                                                size="medium"
                                             >
                                                 <Form.Item
                                                     name="email"
@@ -127,7 +125,7 @@ const AuthPage = () => {
                                                 layout="vertical"
                                                 onFinish={onSignup}
                                                 requiredMark={false}
-                                                size="large"
+                                                size="medium"
                                             >
                                                 <Form.Item
                                                     name="name"
