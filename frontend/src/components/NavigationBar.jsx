@@ -6,6 +6,9 @@ import {
     RobotOutlined,
     UserOutlined,
     PlusOutlined,
+
+    ProfileOutlined,
+
 } from "@ant-design/icons";
 import React, { useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -23,8 +26,13 @@ export default function NavigationBar({ collapsed, onCollapse, topOffset = 72 })
 
     const activeItem = useMemo(() => {
         if (location.pathname.startsWith("/payments")) return "payments";
+
         if (location.pathname.startsWith("/ai")) return "ai";
         if (location.pathname.startsWith("/profile")) return "profile";
+
+    if (location.pathname.startsWith("/cases/analytics")) return "cases-analytics";
+    if (location.pathname.startsWith("/cases")) return "cases";
+
         return "";
     }, [location.pathname]);
 
@@ -42,6 +50,20 @@ export default function NavigationBar({ collapsed, onCollapse, topOffset = 72 })
             onClick: () => navigate("/payments"),
         },
         {
+
+            key: "cases",
+            icon: <ProfileOutlined />,
+            label: "Cases",
+            onClick: () => navigate("/cases"),
+        },
+        {
+            key: "cases-analytics",
+            icon: <ProfileOutlined />,
+            label: "Analytics",
+            onClick: () => navigate("/cases/analytics"),
+        },
+        {
+
             key: "ai",
             icon: <RobotOutlined />,
             label: "AI Chat",
