@@ -12,6 +12,8 @@ import {
 } from "@ant-design/icons";
 import React, { useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { loadStripe } from "@stripe/stripe-js";
+const stripePromise = loadStripe("pk_test_51S1Pqw3DMcWFm5QSfFiA675aURjuokjahd4vyju0KyrFCB9Vdk00y5fCDuOxRiefwJDZMxrfEFrxtjeTWR3ttvGx00N05xeUQL");
 
 const { Sider } = Layout;
 const { Text } = Typography;
@@ -76,6 +78,18 @@ export default function NavigationBar({ collapsed, onCollapse, topOffset = 72 })
         { id: "c2", title: "Refund Case" },
         { id: "c3", title: "New Feature Ideas" },
     ];
+
+    const handleClick = async () => {
+        const res = await fetch("http://localhost:8000/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ payment_id: 'abcd' }),
+        });
+        const data = await res.json();
+        const stripe = await stripePromise;
+        await stripe.redirectToCheckout({ sessionId: data.id });
+        window.location.href = data.url; // fallback redirect
+    };
 
     return (
         <Sider
@@ -165,6 +179,10 @@ export default function NavigationBar({ collapsed, onCollapse, topOffset = 72 })
                     }}
                 >
                     {!collapsed && "New Chat"}
+                </Button>
+
+                <Button onClick={handleClick}>
+                    Pay
                 </Button>
             </div>
         </Sider>

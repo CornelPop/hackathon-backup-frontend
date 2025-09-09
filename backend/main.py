@@ -22,6 +22,13 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
 NATURAL_TEMPERATURE = 0.4  # mai natural, dar controlat
 
+import stripe
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+stripe.api_key = STRIPE_SECRET_KEY
+
 if not OPENAI_API_KEY:
     print("[WARN] OPENAI_API_KEY not set. Set it before calling /chat.")
 
@@ -96,14 +103,14 @@ FEW_SHOTS = [
     # Off-topic -> redirecționare naturală + quick actions
     {"role": "user", "content": "ce faci?"},
     {"role": "assistant", "content":
-     "Sunt aici doar pentru disputele de plată. Spune-mi pe scurt cazul tău sau alege una dintre opțiunile de început:\n"
-     f"• {QUICK_ACTIONS[0]}\n• {QUICK_ACTIONS[1]}\n• {QUICK_ACTIONS[2]}\n• {QUICK_ACTIONS[3]}"},
+        "Sunt aici doar pentru disputele de plată. Spune-mi pe scurt cazul tău sau alege una dintre opțiunile de început:\n"
+        f"• {QUICK_ACTIONS[0]}\n• {QUICK_ACTIONS[1]}\n• {QUICK_ACTIONS[2]}\n• {QUICK_ACTIONS[3]}"},
     # Caz minim -> cere clarificări țintite (max 3)
     {"role": "user", "content": "am o problemă, clientul e nemulțumit"},
     {"role": "assistant", "content":
-     "- Care e motivul exact (nelivrat / fraudă / abonament / dublă / serviciu)?\n"
-     "- Ce detalii are tranzacția (sumă, monedă, dată, ID)?\n"
-     "- Ce dovezi ai acum (factură, AWB/confirmare, loguri, email client)?"},
+        "- Care e motivul exact (nelivrat / fraudă / abonament / dublă / serviciu)?\n"
+        "- Ce detalii are tranzacția (sumă, monedă, dată, ID)?\n"
+        "- Ce dovezi ai acum (factură, AWB/confirmare, loguri, email client)?"},
 ]
 
 # ---------- FastAPI ----------
@@ -121,6 +128,7 @@ app.add_middleware(
 from sqlalchemy import inspect, text
 from app.db.session import engine
 
+
 def _ensure_user_columns():
     try:
         insp = inspect(engine)
@@ -135,11 +143,14 @@ def _ensure_user_columns():
     except Exception as e:
         print('[WARN] auto-migration users columns failed:', e)
 
+
 _ensure_user_columns()
 
+
 class ChatMessage(BaseModel):
-    role: Literal['user','assistant','system']
+    role: Literal['user', 'assistant', 'system']
     content: str
+
 
 class ChatRequest(BaseModel):
     messages: List[ChatMessage]
@@ -147,8 +158,10 @@ class ChatRequest(BaseModel):
     temperature: Optional[float] = None  # dacă nu se dă, folosim NATURAL_TEMPERATURE
     max_tokens: Optional[int] = 600
 
+
 class ChatResponse(BaseModel):
     answer: str
+
 
 class CaseOut(BaseModel):
     id: str
@@ -163,8 +176,10 @@ class CaseOut(BaseModel):
     deadline: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
     class Config:
         from_attributes = True
+
 
 class PaymentOut(BaseModel):
     id: str
@@ -178,8 +193,10 @@ class PaymentOut(BaseModel):
     transaction_type: Optional[str] = None
     payment_channel: Optional[str] = None
     merchant_category: Optional[str] = None
+
     class Config:
         from_attributes = True
+
 
 class PaymentCreate(BaseModel):
     amount: float
@@ -191,10 +208,12 @@ class PaymentCreate(BaseModel):
     merchant_category: Optional[str] = None
     fraud_type: Optional[str] = None
 
+
 class SignupRequest(BaseModel):
     name: str
     email: str
     password: str
+
 
 class UserOut(BaseModel):
     id: str
@@ -204,16 +223,20 @@ class UserOut(BaseModel):
     phone: Optional[str] = None
     created_at: Optional[str] = None
     token: Optional[str] = None
+
     class Config:
         from_attributes = True
+
 
 class LoginRequest(BaseModel):
     email: str
     password: str
 
+
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
+
 
 def build_messages(user_messages: List[ChatMessage]) -> list[dict]:
     """Inserează sistemul + few-shots, apoi istoricul."""
@@ -222,10 +245,12 @@ def build_messages(user_messages: List[ChatMessage]) -> list[dict]:
     msgs += [m.model_dump() for m in user_messages if m.role in ("system", "user", "assistant")]
     return msgs
 
+
 # ---------- Endpoints ----------
 @app.get("/health")
 async def health():
     return {"ok": True, "time": __import__('datetime').datetime.utcnow().isoformat()}
+
 
 @app.get("/debug-config")
 async def debug_config():
@@ -241,9 +266,11 @@ async def debug_config():
         "client_cached": _client is not None,
     }
 
+
 @app.get("/welcome")
 async def welcome():
     return {"welcome": WELCOME_TEXT, "quick_actions": QUICK_ACTIONS}
+
 
 @app.get("/cases", response_model=list[CaseOut])
 def list_cases(db: Session = Depends(get_db)):
@@ -252,7 +279,7 @@ def list_cases(db: Session = Depends(get_db)):
     out: list[CaseOut] = []
     for c in cases:
         out.append(CaseOut(
-            id=c.id, reason=c.reason, status=c.status.value if hasattr(c.status,'value') else c.status,
+            id=c.id, reason=c.reason, status=c.status.value if hasattr(c.status, 'value') else c.status,
             amount=c.amount, currency=c.currency, probability=c.probability, recommendation=c.recommendation,
             owner=c.owner, owner_id=c.owner_id,
             deadline=c.deadline.isoformat() if c.deadline else None,
@@ -261,19 +288,21 @@ def list_cases(db: Session = Depends(get_db)):
         ))
     return out
 
+
 @app.get("/cases/{case_id}", response_model=CaseOut)
 def get_case(case_id: str, db: Session = Depends(get_db)):
     c = db.get(models.Case, case_id)
     if not c:
         raise HTTPException(status_code=404, detail="case not found")
     return CaseOut(
-        id=c.id, reason=c.reason, status=c.status.value if hasattr(c.status,'value') else c.status,
+        id=c.id, reason=c.reason, status=c.status.value if hasattr(c.status, 'value') else c.status,
         amount=c.amount, currency=c.currency, probability=c.probability, recommendation=c.recommendation,
         owner=c.owner, owner_id=c.owner_id,
         deadline=c.deadline.isoformat() if c.deadline else None,
         created_at=c.created_at.isoformat() if c.created_at else None,
         updated_at=c.updated_at.isoformat() if c.updated_at else None
     )
+
 
 @app.get("/payments", response_model=list[PaymentOut])
 def list_payments(db: Session = Depends(get_db)):
@@ -282,15 +311,16 @@ def list_payments(db: Session = Depends(get_db)):
     for p in payments:
         out.append(PaymentOut(
             id=p.id, amount=p.amount, currency=p.currency, label=p.label,
-            status=p.status.value if hasattr(p.status,'value') else p.status,
+            status=p.status.value if hasattr(p.status, 'value') else p.status,
             created_at=p.created_at.isoformat() if p.created_at else None,
-            fraud_type=p.fraud_type if hasattr(p,'fraud_type') else None,
-            receiver_account=p.receiver_account if hasattr(p,'receiver_account') else None,
-            transaction_type=p.transaction_type if hasattr(p,'transaction_type') else None,
-            payment_channel=p.payment_channel if hasattr(p,'payment_channel') else None,
-            merchant_category=p.merchant_category if hasattr(p,'merchant_category') else None
+            fraud_type=p.fraud_type if hasattr(p, 'fraud_type') else None,
+            receiver_account=p.receiver_account if hasattr(p, 'receiver_account') else None,
+            transaction_type=p.transaction_type if hasattr(p, 'transaction_type') else None,
+            payment_channel=p.payment_channel if hasattr(p, 'payment_channel') else None,
+            merchant_category=p.merchant_category if hasattr(p, 'merchant_category') else None
         ))
     return out
+
 
 @app.get("/payments/{payment_id}", response_model=PaymentOut)
 def get_payment(payment_id: str, db: Session = Depends(get_db)):
@@ -299,7 +329,7 @@ def get_payment(payment_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="payment not found")
     return PaymentOut(
         id=p.id, amount=p.amount, currency=p.currency, label=p.label,
-        status=p.status.value if hasattr(p.status,'value') else p.status,
+        status=p.status.value if hasattr(p.status, 'value') else p.status,
         created_at=p.created_at.isoformat() if p.created_at else None,
         fraud_type=p.fraud_type,
         receiver_account=p.receiver_account,
@@ -307,6 +337,7 @@ def get_payment(payment_id: str, db: Session = Depends(get_db)):
         payment_channel=p.payment_channel,
         merchant_category=p.merchant_category
     )
+
 
 @app.post("/payments", response_model=PaymentOut, status_code=201)
 def create_payment(payload: PaymentCreate, db: Session = Depends(get_db)):
@@ -337,7 +368,7 @@ def create_payment(payload: PaymentCreate, db: Session = Depends(get_db)):
         amount=payment.amount,
         currency=payment.currency,
         label=payment.label,
-        status=payment.status.value if hasattr(payment.status,'value') else payment.status,
+        status=payment.status.value if hasattr(payment.status, 'value') else payment.status,
         created_at=payment.created_at.isoformat() if payment.created_at else None,
         fraud_type=payment.fraud_type,
         receiver_account=payment.receiver_account,
@@ -345,6 +376,7 @@ def create_payment(payload: PaymentCreate, db: Session = Depends(get_db)):
         payment_channel=payment.payment_channel,
         merchant_category=payment.merchant_category
     )
+
 
 @app.post('/auth/signup', response_model=UserOut, status_code=201)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
@@ -383,6 +415,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         token=None
     )
 
+
 @app.post('/auth/login', response_model=UserOut)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     email_norm = payload.email.strip().lower()
@@ -408,6 +441,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         token=token
     )
 
+
 @app.get('/users/{user_id}', response_model=UserOut)
 def get_user(user_id: str, db: Session = Depends(get_db)):
     u = db.get(models.User, user_id)
@@ -422,6 +456,7 @@ def get_user(user_id: str, db: Session = Depends(get_db)):
         created_at=u.created_at.isoformat() if u.created_at else None,
         token=None
     )
+
 
 @app.put('/users/{user_id}', response_model=UserOut)
 def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)):
@@ -464,7 +499,7 @@ async def chat(req: ChatRequest):
             messages=messages,
             temperature=NATURAL_TEMPERATURE if req.temperature is None else req.temperature,
             max_tokens=req.max_tokens or 600,
-            top_p=0.9,              # mai natural
+            top_p=0.9,  # mai natural
             presence_penalty=0.0,
             frequency_penalty=0.2,  # reduce repetițiile
         )
@@ -473,10 +508,82 @@ async def chat(req: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"OpenAI error: {e}")
 
+from pydantic import BaseModel
+
+class CheckoutRequest(BaseModel):
+    payment_id: str
+
+class CheckoutResponse(BaseModel):
+    url: str
+
+@app.post("/checkout", response_model=CheckoutResponse)
+def start_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)):
+    p = db.get(models.Payment, payload.payment_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="payment_not_found")
+    if p.status != models.PaymentStatus.open:
+        raise HTTPException(status_code=400, detail=f"payment already {p.status}")
+
+    session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": p.currency.lower(),
+                "product_data": {"name": p.label},
+                "unit_amount": int(p.amount * 100),  # Stripe expects cents
+            },
+            "quantity": 1,
+        }],
+        mode="payment",
+        success_url="http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}",
+        cancel_url="http://localhost:3000/cancel",
+        metadata={"payment_id": p.id},
+    )
+
+    return {"url": session.url}
+
+
+
+from fastapi import Request
+
+
+@app.post("/webhooks/stripe")
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid signature: {e}")
+
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
+        payment_id = session["metadata"].get("payment_id")
+        if payment_id:
+            p = db.get(models.Payment, payment_id)
+            if p:
+                p.status = models.PaymentStatus.successful
+                db.add(p)
+                db.commit()
+
+    elif event["type"] == "payment_intent.payment_failed":
+        pi = event["data"]["object"]
+        payment_id = pi["metadata"].get("payment_id")
+        if payment_id:
+            p = db.get(models.Payment, payment_id)
+            if p:
+                p.status = models.PaymentStatus.failed
+                db.add(p)
+                db.commit()
+
+    return {"received": True}
+
+
 # Local run helper
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
-
-
