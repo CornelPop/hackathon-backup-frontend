@@ -148,7 +148,9 @@ function ensureCaseShape(c){
     activity: [],
     analysis: { reasons: [], rulesSummary: '' },
     events: [],
+  history: [],
     ...c,
+  history: (c.history && Array.isArray(c.history)) ? c.history : (c.lastUpdate ? [{ at: c.lastUpdate, text: 'Loaded' }] : []),
     checklist: (c.checklist && Array.isArray(c.checklist) ? c.checklist : instantiateChecklist(c.reason || 'Default')).map(i => ({
       ...i,
       status: i.status || 'missing',
@@ -183,6 +185,54 @@ export function CasesProvider({ children }) {
     } catch (_) {}
     return seedCases().map(ensureCaseShape);
   });
+  const [loadedRemote, setLoadedRemote] = useState(false);
+
+  // Attempt remote load (idempotent). If backend reachable, replace local data (shallow fields only for now)
+  useEffect(()=>{
+    const controller = new AbortController();
+    async function loadRemote(){
+      try {
+        const res = await fetch('http://localhost:8000/cases', { signal: controller.signal });
+        if(!res.ok) throw new Error('http error');
+        const data = await res.json();
+        if(Array.isArray(data) && data.length){
+          setCases(prev => {
+            // map incoming into local extended shape; we keep existing local if same id to avoid losing rich fields
+            const map = new Map(prev.map(c=>[c.id,c]));
+            const merged = data.map(r => {
+              const existing = map.get(r.id);
+              const deadlineMs = r.deadline ? Date.parse(r.deadline) : (existing?.deadline || Date.now()+72*3600*1000);
+              return ensureCaseShape({
+                id: r.id,
+                reason: r.reason,
+                status: r.status,
+                amount: r.amount,
+                currency: r.currency,
+                probability: r.probability,
+                recommendation: r.recommendation,
+                owner: r.owner || existing?.owner,
+                lastUpdate: existing?.lastUpdate || Date.now(),
+                deadline: deadlineMs,
+                letter: existing?.letter || '',
+                checklist: existing?.checklist || instantiateChecklist(r.reason),
+                notes: existing?.notes || [],
+                attachments: existing?.attachments || [],
+                analysis: existing?.analysis || { reasons: [], rulesSummary: '' },
+                events: existing?.events || [],
+                history: existing?.history || [{ at: Date.now(), text: 'Imported' }]
+              });
+            });
+            return merged;
+          });
+          setLoadedRemote(true);
+        }
+      } catch (e){
+        // silent fallback
+      }
+    }
+    if(!loadedRemote) loadRemote();
+    return ()=> controller.abort();
+  }, [loadedRemote]);
 
   useEffect(() => {
     // On each change persist migrated version
@@ -288,7 +338,7 @@ export function CasesProvider({ children }) {
     })() : c));
   }, [logEvent]);
 
-  const contextValue = useMemo(() => ({ cases, updateCase, changeStatus, generateLetter, updateChecklistItem, addAttachment, addNote, regenerateAnalysis, EVENT_ACTIONS }), [cases, updateCase, changeStatus, generateLetter, updateChecklistItem, addAttachment, addNote, regenerateAnalysis]);
+  const contextValue = useMemo(() => ({ cases, updateCase, changeStatus, generateLetter, updateChecklistItem, addAttachment, addNote, regenerateAnalysis, EVENT_ACTIONS, loadedRemote }), [cases, updateCase, changeStatus, generateLetter, updateChecklistItem, addAttachment, addNote, regenerateAnalysis, loadedRemote]);
 
   return <CasesContext.Provider value={contextValue}>{children}</CasesContext.Provider>;
 }

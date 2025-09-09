@@ -1,8 +1,13 @@
 import os
 from typing import List, Literal, Optional
-from fastapi import FastAPI, HTTPException
+import hashlib
+import uuid
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from app.db.session import get_db
+from app import models
 from dotenv import load_dotenv
 
 # OpenAI import "lazy"
@@ -112,6 +117,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- lightweight dev auto-migration (safe idempotent) ---
+from sqlalchemy import inspect, text
+from app.db.session import engine
+
+def _ensure_user_columns():
+    try:
+        insp = inspect(engine)
+        cols = {c['name'] for c in insp.get_columns('users')}
+        with engine.begin() as conn:
+            if 'password_hash' not in cols:
+                conn.execute(text('ALTER TABLE users ADD COLUMN password_hash VARCHAR'))
+            if 'created_via_signup' not in cols:
+                conn.execute(text('ALTER TABLE users ADD COLUMN created_via_signup BOOLEAN DEFAULT FALSE'))
+            if 'phone' not in cols:
+                conn.execute(text('ALTER TABLE users ADD COLUMN phone VARCHAR'))
+    except Exception as e:
+        print('[WARN] auto-migration users columns failed:', e)
+
+_ensure_user_columns()
+
 class ChatMessage(BaseModel):
     role: Literal['user','assistant','system']
     content: str
@@ -124,6 +149,71 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
+
+class CaseOut(BaseModel):
+    id: str
+    reason: str
+    status: str
+    amount: float
+    currency: str
+    probability: float
+    recommendation: str
+    owner: str | None = None
+    owner_id: str | None = None
+    deadline: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    class Config:
+        from_attributes = True
+
+class PaymentOut(BaseModel):
+    id: str
+    amount: float
+    currency: str
+    label: str
+    status: str
+    created_at: Optional[str] = None
+    fraud_type: Optional[str] = None
+    receiver_account: Optional[str] = None
+    transaction_type: Optional[str] = None
+    payment_channel: Optional[str] = None
+    merchant_category: Optional[str] = None
+    class Config:
+        from_attributes = True
+
+class PaymentCreate(BaseModel):
+    amount: float
+    currency: Optional[str] = 'RON'
+    label: str
+    receiver_account: Optional[str] = None
+    transaction_type: Optional[str] = None
+    payment_channel: Optional[str] = None
+    merchant_category: Optional[str] = None
+    fraud_type: Optional[str] = None
+
+class SignupRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class UserOut(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    phone: Optional[str] = None
+    created_at: Optional[str] = None
+    token: Optional[str] = None
+    class Config:
+        from_attributes = True
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
 
 def build_messages(user_messages: List[ChatMessage]) -> list[dict]:
     """Inserează sistemul + few-shots, apoi istoricul."""
@@ -154,6 +244,211 @@ async def debug_config():
 @app.get("/welcome")
 async def welcome():
     return {"welcome": WELCOME_TEXT, "quick_actions": QUICK_ACTIONS}
+
+@app.get("/cases", response_model=list[CaseOut])
+def list_cases(db: Session = Depends(get_db)):
+    cases = db.query(models.Case).order_by(models.Case.created_at.desc()).limit(500).all()
+    # Serialize datetime to ISO
+    out: list[CaseOut] = []
+    for c in cases:
+        out.append(CaseOut(
+            id=c.id, reason=c.reason, status=c.status.value if hasattr(c.status,'value') else c.status,
+            amount=c.amount, currency=c.currency, probability=c.probability, recommendation=c.recommendation,
+            owner=c.owner, owner_id=c.owner_id,
+            deadline=c.deadline.isoformat() if c.deadline else None,
+            created_at=c.created_at.isoformat() if c.created_at else None,
+            updated_at=c.updated_at.isoformat() if c.updated_at else None
+        ))
+    return out
+
+@app.get("/cases/{case_id}", response_model=CaseOut)
+def get_case(case_id: str, db: Session = Depends(get_db)):
+    c = db.get(models.Case, case_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="case not found")
+    return CaseOut(
+        id=c.id, reason=c.reason, status=c.status.value if hasattr(c.status,'value') else c.status,
+        amount=c.amount, currency=c.currency, probability=c.probability, recommendation=c.recommendation,
+        owner=c.owner, owner_id=c.owner_id,
+        deadline=c.deadline.isoformat() if c.deadline else None,
+        created_at=c.created_at.isoformat() if c.created_at else None,
+        updated_at=c.updated_at.isoformat() if c.updated_at else None
+    )
+
+@app.get("/payments", response_model=list[PaymentOut])
+def list_payments(db: Session = Depends(get_db)):
+    payments = db.query(models.Payment).order_by(models.Payment.created_at.desc()).limit(500).all()
+    out: list[PaymentOut] = []
+    for p in payments:
+        out.append(PaymentOut(
+            id=p.id, amount=p.amount, currency=p.currency, label=p.label,
+            status=p.status.value if hasattr(p.status,'value') else p.status,
+            created_at=p.created_at.isoformat() if p.created_at else None,
+            fraud_type=p.fraud_type if hasattr(p,'fraud_type') else None,
+            receiver_account=p.receiver_account if hasattr(p,'receiver_account') else None,
+            transaction_type=p.transaction_type if hasattr(p,'transaction_type') else None,
+            payment_channel=p.payment_channel if hasattr(p,'payment_channel') else None,
+            merchant_category=p.merchant_category if hasattr(p,'merchant_category') else None
+        ))
+    return out
+
+@app.get("/payments/{payment_id}", response_model=PaymentOut)
+def get_payment(payment_id: str, db: Session = Depends(get_db)):
+    p = db.get(models.Payment, payment_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="payment not found")
+    return PaymentOut(
+        id=p.id, amount=p.amount, currency=p.currency, label=p.label,
+        status=p.status.value if hasattr(p.status,'value') else p.status,
+        created_at=p.created_at.isoformat() if p.created_at else None,
+        fraud_type=p.fraud_type,
+        receiver_account=p.receiver_account,
+        transaction_type=p.transaction_type,
+        payment_channel=p.payment_channel,
+        merchant_category=p.merchant_category
+    )
+
+@app.post("/payments", response_model=PaymentOut, status_code=201)
+def create_payment(payload: PaymentCreate, db: Session = Depends(get_db)):
+    if payload.amount is None or payload.amount <= 0:
+        raise HTTPException(status_code=400, detail="invalid_amount")
+    label = (payload.label or '').strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="label_required")
+    currency = (payload.currency or 'RON').upper()[:8]
+    pid = 'pay-' + uuid.uuid4().hex[:12]
+    payment = models.Payment(
+        id=pid,
+        amount=float(payload.amount),
+        currency=currency,
+        label=label,
+        status=models.PaymentStatus.open,
+        receiver_account=payload.receiver_account,
+        transaction_type=payload.transaction_type,
+        payment_channel=payload.payment_channel,
+        merchant_category=payload.merchant_category,
+        fraud_type=payload.fraud_type
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return PaymentOut(
+        id=payment.id,
+        amount=payment.amount,
+        currency=payment.currency,
+        label=payment.label,
+        status=payment.status.value if hasattr(payment.status,'value') else payment.status,
+        created_at=payment.created_at.isoformat() if payment.created_at else None,
+        fraud_type=payment.fraud_type,
+        receiver_account=payment.receiver_account,
+        transaction_type=payment.transaction_type,
+        payment_channel=payment.payment_channel,
+        merchant_category=payment.merchant_category
+    )
+
+@app.post('/auth/signup', response_model=UserOut, status_code=201)
+def signup(payload: SignupRequest, db: Session = Depends(get_db)):
+    # Basic normalization
+    email_norm = payload.email.strip().lower()
+    if not email_norm or '@' not in email_norm:
+        raise HTTPException(status_code=400, detail='invalid email')
+    # Check existing
+    existing = db.query(models.User).filter(models.User.email == email_norm).first()
+    if existing:
+        raise HTTPException(status_code=409, detail='email exists')
+    # Simple password policy (demo only)
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail='password too short')
+    # Hash (demo: sha256; for production use passlib bcrypt)
+    pw_hash = hashlib.sha256(payload.password.encode('utf-8')).hexdigest()
+    user_id = 'u-' + uuid.uuid4().hex[:10]
+    user = models.User(
+        id=user_id,
+        email=email_norm,
+        name=payload.name.strip() or 'User',
+        role='operator',
+        password_hash=pw_hash,
+        created_via_signup=True
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return UserOut(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=user.role,
+        phone=user.phone,
+        created_at=user.created_at.isoformat() if user.created_at else None,
+        token=None
+    )
+
+@app.post('/auth/login', response_model=UserOut)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    email_norm = payload.email.strip().lower()
+    if not email_norm or '@' not in email_norm:
+        raise HTTPException(status_code=400, detail='invalid_email')
+    user = db.query(models.User).filter(models.User.email == email_norm).first()
+    if not user:
+        raise HTTPException(status_code=404, detail='email_not_found')
+    # Users created via seed might not have password_hash; treat as invalid password
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail='password_not_set')
+    pw_hash = hashlib.sha256(payload.password.encode('utf-8')).hexdigest()
+    if pw_hash != user.password_hash:
+        raise HTTPException(status_code=400, detail='invalid_password')
+    token = 'tok-' + uuid.uuid4().hex[:24]
+    return UserOut(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=user.role,
+        phone=user.phone,
+        created_at=user.created_at.isoformat() if user.created_at else None,
+        token=token
+    )
+
+@app.get('/users/{user_id}', response_model=UserOut)
+def get_user(user_id: str, db: Session = Depends(get_db)):
+    u = db.get(models.User, user_id)
+    if not u:
+        raise HTTPException(status_code=404, detail='user_not_found')
+    return UserOut(
+        id=u.id,
+        name=u.name,
+        email=u.email,
+        role=u.role,
+        phone=u.phone,
+        created_at=u.created_at.isoformat() if u.created_at else None,
+        token=None
+    )
+
+@app.put('/users/{user_id}', response_model=UserOut)
+def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)):
+    u = db.get(models.User, user_id)
+    if not u:
+        raise HTTPException(status_code=404, detail='user_not_found')
+    changed = False
+    if payload.name is not None:
+        u.name = payload.name.strip() or u.name
+        changed = True
+    if payload.phone is not None:
+        u.phone = payload.phone.strip() or None
+        changed = True
+    if changed:
+        db.add(u)
+        db.commit()
+        db.refresh(u)
+    return UserOut(
+        id=u.id,
+        name=u.name,
+        email=u.email,
+        role=u.role,
+        phone=u.phone,
+        created_at=u.created_at.isoformat() if u.created_at else None,
+        token=None
+    )
+
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):

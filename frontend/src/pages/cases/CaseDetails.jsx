@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Descriptions, Divider, Dropdown, Empty, Modal, Space, Tag, Typography, Steps, Upload, Input, List, message, Tooltip, Popconfirm } from 'antd';
+import { Alert, Badge, Button, Card, Descriptions, Divider, Dropdown, Empty, Modal, Space, Tag, Typography, Steps, Upload, Input, List, message, Tooltip, Popconfirm, Spin } from 'antd';
 import { ArrowLeftOutlined, BranchesOutlined, CopyOutlined, FileDoneOutlined, FileTextOutlined, SendOutlined, ReloadOutlined, InboxOutlined, EditOutlined, SaveOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCases, STATUS_COLORS, EVENT_ACTIONS } from './CasesContext';
@@ -16,13 +16,24 @@ function formatSLA(deadline){
 export default function CaseDetails(){
   const { caseId } = useParams();
   const navigate = useNavigate();
-  const { cases, changeStatus, generateLetter, updateChecklistItem, addAttachment, addNote, regenerateAnalysis, updateCase, EVENT_ACTIONS: EA } = useCases();
+  const { cases, changeStatus, generateLetter, updateChecklistItem, addAttachment, addNote, regenerateAnalysis, updateCase, EVENT_ACTIONS: EA, loadedRemote } = useCases();
   const item = cases.find(c => c.id === caseId);
+
+  // Early guard BEFORE any access to item properties (prevents crash if navigating quickly while remote data not yet merged)
+  if(!item){
+    return !loadedRemote ? (
+      <div style={{padding:40,display:'flex',justifyContent:'center'}}>
+        <Spin tip="Loading case..." />
+      </div>
+    ) : (
+      <Empty description={<span>Case not found</span>} />
+    );
+  }
   // Defensive shape (in case of race before migration) – do not mutate context directly here
-  const checklistSafe = item?.checklist && Array.isArray(item.checklist) ? item.checklist : [];
-  const attachmentsSafe = item?.attachments && Array.isArray(item.attachments) ? item.attachments : [];
-  const notesSafe = item?.notes && Array.isArray(item.notes) ? item.notes : [];
-  const activitySafe = item?.activity && Array.isArray(item.activity) ? item.activity : [];
+  const checklistSafe = item.checklist && Array.isArray(item.checklist) ? item.checklist : [];
+  const attachmentsSafe = item.attachments && Array.isArray(item.attachments) ? item.attachments : [];
+  const notesSafe = item.notes && Array.isArray(item.notes) ? item.notes : [];
+  const activitySafe = item.activity && Array.isArray(item.activity) ? item.activity : [];
   const [showLetter, setShowLetter] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [tmpLetter, setTmpLetter] = useState('');
@@ -30,9 +41,7 @@ export default function CaseDetails(){
   const [letterDraft, setLetterDraft] = useState(item?.letter || '');
   const [noteText, setNoteText] = useState('');
   const [eventFilter, setEventFilter] = useState('all');
-  const eventsSafe = item?.events || [];
-
-  if(!item) return <Empty description={<span>Case not found</span>} />;
+  const eventsSafe = item.events || [];
 
   const statusItems = ['Open','In Progress','Sent','Won','Lost'].map(s => ({ key: s, label: s, disabled: s===item.status, onClick: ()=> changeStatus(item.id, s) }));
 
@@ -59,7 +68,7 @@ export default function CaseDetails(){
     return {
       currentIndex,
       items: [
-        { title: 'Creat', status: mapStatus(created), description: new Date(item.history[0]?.at || item.lastUpdate).toLocaleDateString() },
+  { title: 'Creat', status: mapStatus(created), description: new Date(item.history?.[0]?.at || item.lastUpdate).toLocaleDateString() },
         { title: 'Date colectate', status: mapStatus(dataCollected), description: dataCollected? 'OK':'Motiv lipsă?' },
   { title: 'Dovezi', status: mapStatus(evidenceDone), description: `${Math.round(evidencePct*100)}%` },
         { title: 'Scrisoare', status: mapStatus(letterGen), description: letterGen? 'Generată':'—' },

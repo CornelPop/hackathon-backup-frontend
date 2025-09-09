@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from 'react-router-dom';
 import {
     Descriptions,
     Typography,
@@ -22,7 +23,7 @@ import {
 const { Content } = Layout;
 const { Title } = Typography;
 
-export default function Profile({ user }) {
+export default function Profile() {
     const {
         token: {
             colorBorderSecondary,
@@ -34,26 +35,56 @@ export default function Profile({ user }) {
     } = theme.useToken();
 
     const [form] = Form.useForm();
+    const navigate = useNavigate();
 
     // State for modals
     const [editOpen, setEditOpen] = useState(false);
     const [signOutOpen, setSignOutOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
 
-    const [mockUser, setMockUser] = useState({
-        id: "12345",
-        email: "jane.doe@example.com",
-        full_name: "Jane Doe",
-        phone: "+40 721 123 456",
-        role: "Admin",
-    });
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    // Load current user from localStorage (saved at login/signup) then refresh from backend
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('cb_user');
+            if(raw){
+                const parsed = JSON.parse(raw);
+                setUser(parsed);
+                // Fetch fresh details
+                if(parsed.id){
+                    fetch(`http://localhost:8000/users/${parsed.id}`)
+                        .then(r=> r.ok ? r.json(): null)
+                        .then(data => { if(data){ setUser(prev => ({...prev, ...data})); } })
+                        .finally(()=> setLoading(false));
+                } else {
+                    setLoading(false);
+                }
+            } else {
+                setLoading(false);
+            }
+        } catch(e){ setLoading(false); }
+    }, []);
 
     // Handle edit save
     const handleSave = async () => {
         try {
             const values = await form.validateFields();
-            setMockUser((prev) => ({ ...prev, ...values }));
-            message.success("Profile updated successfully");
+            if(!user?.id) return;
+            const res = await fetch(`http://localhost:8000/users/${user.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: values.full_name, phone: values.phone })
+            });
+            if(!res.ok){
+                return message.error('Update failed');
+            }
+            const updated = await res.json();
+            const merged = { ...user, ...updated, full_name: updated.name };
+            setUser(merged);
+            localStorage.setItem('cb_user', JSON.stringify(merged));
+            message.success("Profile updated");
             setEditOpen(false);
         } catch (err) {
             console.log("Validation failed", err);
@@ -62,9 +93,10 @@ export default function Profile({ user }) {
 
     // Handle sign out
     const handleSignOut = () => {
-        message.info("Signed out");
+        try { localStorage.removeItem('cb_user'); } catch(_) {}
+        message.success('Signed out');
         setSignOutOpen(false);
-        // TODO: implement real sign out logic
+        navigate('/auth');
     };
 
     // Handle delete account
@@ -73,6 +105,9 @@ export default function Profile({ user }) {
         setDeleteOpen(false);
         // TODO: implement real delete logic
     };
+
+    if(loading) return <div style={{padding:24}}>Loading...</div>;
+    if(!user) return <div style={{padding:24}}>No user logged in.</div>;
 
     return (
         <Content style={{ padding: 12, background: colorBgContainer, borderRadius: 16 }}>
@@ -84,29 +119,29 @@ export default function Profile({ user }) {
                 bordered column={1} size="middle" style={{marginBottom: 12}}
             >
                 <Descriptions.Item label={<><IdcardOutlined /> ID</>}>
-                    {mockUser.id}
+                    {user.id}
                 </Descriptions.Item>
 
                 <Descriptions.Item label={<><UserOutlined /> Full Name</>}>
-                    {mockUser.full_name || "—"}
+                    {user.name || user.full_name || "—"}
                 </Descriptions.Item>
 
                 <Descriptions.Item label={<><MailOutlined /> Email</>}>
-                    {mockUser.email}
+                    {user.email}
                 </Descriptions.Item>
 
                 <Descriptions.Item label={<><PhoneOutlined /> Phone</>}>
-                    {mockUser.phone || "—"}
+                    {user.phone || "—"}
                 </Descriptions.Item>
 
                 <Descriptions.Item label={<><TeamOutlined /> Role</>}>
-                    {mockUser.role}
+                    {user.role}
                 </Descriptions.Item>
             </Descriptions>
 
             <Space>
                 <Button type="primary" onClick={() => {
-                    form.setFieldsValue(mockUser); // preload form
+                    form.setFieldsValue({ full_name: user.name || user.full_name, email: user.email, phone: user.phone, role: user.role });
                     setEditOpen(true);
                 }}>
                     Edit Profile
@@ -134,13 +169,13 @@ export default function Profile({ user }) {
                         <Input />
                     </Form.Item>
                     <Form.Item label="Email" name="email">
-                        <Input type="email" />
+                        <Input type="email" disabled />
                     </Form.Item>
                     <Form.Item label="Phone" name="phone">
                         <Input />
                     </Form.Item>
                     <Form.Item label="Role" name="role">
-                        <Input />
+                        <Input disabled />
                     </Form.Item>
                 </Form>
             </Modal>

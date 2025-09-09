@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import React from 'react';
 import AppLayout from "./layouts/AppLayout";
 import Payments from "./pages/payments/Payments";
+import { PaymentsProvider } from './pages/payments/PaymentsContext';
 import PaymentDetailsPage from "./pages/payments/PaymentDetails";
 import AuthPage from "./pages/auth/Auth";
 import CasesPage from './pages/cases/Cases';
@@ -10,15 +12,23 @@ import AnalyticsPage from './pages/cases/Analytics';
 import AIChat from "./pages/aiassistant/AIChat.jsx";
 import Profile from "./pages/profiles/Profile.jsx";
 
+function RequireAuth({ children }) {
+    // Simple client guard (localStorage token presence)
+    let ok = false;
+    try { ok = !!localStorage.getItem('cb_user'); } catch(_) {}
+    if(!ok) return <Navigate to="/auth" replace />;
+    return children;
+}
+
 export default function App() {
     return (
-        <CasesProvider>
+    <CasesProvider>
             <Routes>
                 {/* Redirect root path to /payments (pagina principală) */}
                 <Route path="/" element={<Navigate to="/payments" replace />} />
                 <Route path="/auth" element={<AuthPage />} />
 
-                <Route element={<AppLayout />}>
+                <Route element={<RequireAuth><PaymentsProvider><AppLayout /></PaymentsProvider></RequireAuth>}>
                     <Route path="/payments" element={<Payments />} />
                     <Route path="/payments/:transactionId" element={<PaymentDetailsPage />} />
                     <Route path="/cases" element={<CasesPage />} />

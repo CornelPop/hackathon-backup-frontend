@@ -49,7 +49,7 @@ const merchantCategoryOptions = [
 
 const paymentChannels = ["Bank Transfer", "Card", "Cash"];
 
-export default function CustomHeader({ sticky = true }) {
+export default function CustomHeader({ sticky = true, onCreated }) {
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [form] = Form.useForm();
@@ -68,13 +68,37 @@ export default function CustomHeader({ sticky = true }) {
         try {
             const values = await form.validateFields();
             setConfirmLoading(true);
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            console.log("Form submitted:", values);
-            message.success("Invoice created");
+            const payload = {
+                amount: parseFloat(values.amount),
+                currency: values.currency,
+                label: values.description || 'No description',
+                receiver_account: values.receiver,
+                transaction_type: values.transaction_type || null,
+                payment_channel: values.channel,
+                merchant_category: values.category,
+                fraud_type: values.fraud_type || null
+            };
+            const resp = await fetch('http://localhost:8000/payments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if(!resp.ok){
+                const t = await resp.text();
+                throw new Error('Create failed '+resp.status+': '+t.slice(0,140));
+            }
+            const data = await resp.json();
+            message.success('Invoice created');
+            onCreated?.(data); // pass to parent/context if provided
             setModalOpen(false);
             form.resetFields();
         } catch (err) {
-            console.log("Validation failed:", err);
+            if(err?.errorFields){
+                // form validation errors already shown by antd
+            } else {
+                console.log("Create payment error:", err);
+                message.error(err.message || 'Error');
+            }
         } finally {
             setConfirmLoading(false);
         }
@@ -106,9 +130,7 @@ export default function CustomHeader({ sticky = true }) {
                     />
                 </div>
 
-                <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleOpen}>
-                    New invoice
-                </Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleOpen}>New Invoice</Button>
 
                 <ThemeSwitcher />
             </Header>
@@ -135,6 +157,12 @@ export default function CustomHeader({ sticky = true }) {
                             }
                             options={receiverOptions}
                         />
+                    </Form.Item>
+                    <Form.Item label="Transaction Type" name="transaction_type">
+                        <Input placeholder="e.g. purchase / refund" />
+                    </Form.Item>
+                    <Form.Item label="Fraud Type" name="fraud_type">
+                        <Input placeholder="optional fraud category" />
                     </Form.Item>
 
                     <Form.Item

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Layout, theme } from "antd";
 import {Outlet, useLocation} from "react-router-dom";
 import CustomHeader from "../components/CustomHeader";
+import { usePayments } from '../pages/payments/PaymentsContext';
 import NavigationBar from "../components/NavigationBar";
 
 const { Content } = Layout;
@@ -9,6 +10,10 @@ const { Content } = Layout;
 export default function AppLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
+    let addPayment;
+    try {
+        ({ addPayment } = usePayments());
+    } catch(_) {}
 
     const location = useLocation();
 
@@ -20,9 +25,7 @@ export default function AppLayout() {
 
     return (
         <Layout style={{ minHeight: "100vh" }}>
-            <CustomHeader
-                onNew={() => setModalOpen(true)}
-            />
+            <CustomHeader onCreated={p => addPayment?.(p)} />
 
             <Layout hasSider>
                 <NavigationBar

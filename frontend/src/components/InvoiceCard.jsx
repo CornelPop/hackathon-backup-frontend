@@ -11,7 +11,7 @@ import { Typography } from "antd";
 const { Title, Text } = Typography;
 import { useNavigate } from "react-router-dom";
 
-export default function InvoiceCard({ item, onPay }) {
+export default function InvoiceCard({ item, onPay, onRetry }) {
     const navigate = useNavigate();
 
     const statusColor = {
@@ -104,7 +104,7 @@ export default function InvoiceCard({ item, onPay }) {
                             Pay
                         </Button>
                     ) : item.status === "FAILED" ? (
-                        <Button danger block style={{ borderRadius: 10 }}>
+                        <Button danger block style={{ borderRadius: 10 }} onClick={() => onRetry?.(item)}>
                             Retry
                         </Button>
                     ) : (

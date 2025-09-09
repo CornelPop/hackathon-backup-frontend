@@ -28,6 +28,23 @@ export default function AIChat() {
         if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
     }, [messages]);
 
+    // Auto-submit standardized dispute message only once (guard for React StrictMode double mount)
+    const autoSentRef = useRef(false);
+    useEffect(() => {
+        if (!item) return;
+        if (autoSentRef.current) return; // already sent during this mount
+        if (messages.length > 0) return; // user already interacted
+        autoSentRef.current = true;
+        const template = `Dispută tranzacție flagată:
+ID: ${item.id}
+Sumă: ${item.amount} ${item.currency}
+Descriere: ${item.label}
+Status curent: ${item.status}
+Context: am nevoie de pașii recomandați și ce dovezi/documente să pregătesc pentru a reduce riscul de chargeback. Indică clar ce lipsește.`;
+        (async () => { await send(template); })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [item, messages.length]);
+
     const callBackend = async (history) => {
         try {
             const resp = await fetch('http://localhost:8000/chat', {

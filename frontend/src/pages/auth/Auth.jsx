@@ -25,14 +25,52 @@ const AuthPage = () => {
 
     const goHome = () => navigate('/payments');
 
-    const onLogin = (values) => {
-        console.log("Login:", values);
-        goHome();
+    const onLogin = async (values) => {
+        try {
+            const res = await fetch('http://localhost:8000/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: values.email, password: values.password })
+            });
+            if(!res.ok){
+                let detail = 'login_error';
+                try { const js = await res.json(); detail = js.detail || detail; } catch(_) { }
+                if(detail === 'email_not_found') return window.alert('Email inexistent');
+                if(detail === 'invalid_password') return window.alert('Parolă greșită');
+                if(detail === 'password_not_set') return window.alert('Cont fără parolă (seed) – creează un nou cont.');
+                if(detail === 'invalid_email') return window.alert('Email invalid');
+                return window.alert('Eroare login: '+detail);
+            }
+            const user = await res.json();
+            localStorage.setItem('cb_user', JSON.stringify(user));
+            goHome();
+        } catch(e){
+            console.error('login error', e);
+            window.alert('Network error la login');
+        }
     };
 
-    const onSignup = (values) => {
-        console.log("Sign up:", values);
-        goHome();
+    const onSignup = async (values) => {
+        try {
+            const res = await fetch('http://localhost:8000/auth/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: values.name, email: values.email, password: values.password })
+            });
+            if(res.status === 409){
+                return window.alert('Email deja existent');
+            }
+            if(!res.ok){
+                const txt = await res.text();
+                return window.alert('Eroare signup: '+txt);
+            }
+            const user = await res.json();
+            localStorage.setItem('cb_user', JSON.stringify(user));
+            goHome();
+        } catch(e){
+            console.error('signup error', e);
+            window.alert('Network error la signup');
+        }
     };
 
     return (
