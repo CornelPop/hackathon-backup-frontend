@@ -28,7 +28,7 @@ export default function App() {
                 <Route path="/" element={<Navigate to="/payments" replace />} />
                 <Route path="/auth" element={<AuthPage />} />
 
-                <Route element={<RequireAuth><PaymentsProvider><AppLayout /></PaymentsProvider></RequireAuth>}>
+                <Route element={<PaymentsProvider><AppLayout /></PaymentsProvider>}>
                     <Route path="/payments" element={<Payments />} />
                     <Route path="/payments/:transactionId" element={<PaymentDetailsPage />} />
                     <Route path="/cases" element={<CasesPage />} />
