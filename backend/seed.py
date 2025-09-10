@@ -155,6 +155,19 @@ for i in range(21,36):
         'merchant_category': random.choice(['games','pharmacy','movies','clinic','electronics','services']),
         'created_at': NOW - timedelta(hours=random.randint(1,96))
     })
+# Add 15 more OPEN payments (O36-O50) additional batch
+for i in range(36,51):
+    USER_PAYMENTS.append({
+        'id': f'PAY-MH-O{i:02d}',
+        'amount': round(random.uniform(18, 1400),2),
+        'currency': random.choice(['RON','EUR','USD']),
+        'label': random.choice(['Open invoice','Pending checkout','Awaiting payment','Cart hold','Unpaid order','Outstanding','Pending capture','New order pending']),
+        'status': models.PaymentStatus.open,
+        'receiver_account': TARGET_USER_EMAIL,
+        'payment_channel': random.choice(['Card','Bank Transfer','POS','Wallet']),
+        'merchant_category': random.choice(['games','pharmacy','movies','clinic','electronics','services','education']),
+        'created_at': NOW - timedelta(hours=random.randint(1,120))
+    })
 for idx, c in enumerate(CASES):
     if idx % 2 == 0 and idx < len(PAYMENTS):
         c['payment_id'] = PAYMENTS[idx]['id']
