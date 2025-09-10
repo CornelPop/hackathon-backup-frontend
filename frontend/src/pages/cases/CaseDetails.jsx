@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Descriptions, Divider, Dropdown, Empty, Modal, Space, Tag, Typography, Steps, Upload, Input, List, message, Tooltip, Popconfirm, Spin } from 'antd';
-import { ArrowLeftOutlined, BranchesOutlined, CopyOutlined, FileDoneOutlined, FileTextOutlined, SendOutlined, ReloadOutlined, InboxOutlined, EditOutlined, SaveOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import { Alert, Badge, Button, Card, DatePicker, Divider, Dropdown, Empty, Modal, Space, Tag, Typography, Steps, Upload, Input, List, message, Tooltip, Popconfirm, Spin } from 'antd';
+import { ArrowLeftOutlined, BranchesOutlined, CopyOutlined, FileDoneOutlined, FileTextOutlined, SendOutlined, InboxOutlined, EditOutlined, SaveOutlined, DownloadOutlined, PlusOutlined, CloseOutlined, RobotOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCases, STATUS_COLORS, EVENT_ACTIONS } from './CasesContext';
 
@@ -16,7 +17,7 @@ function formatSLA(deadline){
 export default function CaseDetails(){
   const { caseId } = useParams();
   const navigate = useNavigate();
-  const { cases, changeStatus, generateLetter, updateChecklistItem, addAttachment, addNote, regenerateAnalysis, updateCase, EVENT_ACTIONS: EA, loadedRemote } = useCases();
+  const { cases, changeStatus, generateLetter, updateChecklistItem, addAttachment, removeAttachment, addNote, regenerateAnalysis, updateCase, EVENT_ACTIONS: EA, loadedRemote } = useCases();
   const item = cases.find(c => c.id === caseId);
 
   // Early guard BEFORE any access to item properties (prevents crash if navigating quickly while remote data not yet merged)
@@ -40,6 +41,15 @@ export default function CaseDetails(){
   const [editingLetter, setEditingLetter] = useState(false);
   const [letterDraft, setLetterDraft] = useState(item?.letter || '');
   const [noteText, setNoteText] = useState('');
+  const [previewAttachment, setPreviewAttachment] = useState(null);
+  const [metaDraft, setMetaDraft] = useState({
+    merchant_name: item.merchant_name||'',
+    customer_masked_name: item.customer_masked_name||'',
+    customer_masked_email: item.customer_masked_email||'',
+    transaction_date: item.transaction_date? (typeof item.transaction_date==='number'? item.transaction_date : Date.parse(item.transaction_date)) : null,
+    short_description: item.short_description||'',
+    actions_taken: item.actions_taken||''
+  });
   const [eventFilter, setEventFilter] = useState('all');
   const eventsSafe = item.events || [];
 
@@ -56,15 +66,35 @@ export default function CaseDetails(){
 
   // Timeline computation (6 steps)
   const timelineSteps = useMemo(()=>{
+    // A "fresh" case: just created, no AI analysis event, no evidence ok, no letter, still Open
+  const hasAI = (item.events||[]).some(e=> e.action === EA.AI_RECOMMENDATION);
+  // Consider data collected ONLY when all required checklist items are either ok or na (not missing/uploaded transitional). If no checklist, fallback to reason presence.
+  const requiredItems = checklistSafe.filter(i=> i.required);
+  const allRequiredSatisfied = requiredItems.length>0 ? requiredItems.every(i=> ['ok','na','uploaded'].includes(i.status)) : !!item.reason;
+  const okEvidence = checklistSafe.some(i=> i.status==='ok');
+  const fresh = item.status==='Open' && !hasAI && !okEvidence && !item.letter && !allRequiredSatisfied;
     const created = true;
-    const dataCollected = !!item.reason;
+  const dataCollected = allRequiredSatisfied;
   const evidencePct = checklistSafe.length? checklistSafe.filter(i=> i.status==='ok').length / checklistSafe.length : 0;
     const evidenceDone = evidencePct >= 0.6; // threshold
-    const letterGen = !!item.letter;
-    const sent = item.status === 'Sent' || item.status === 'Won' || item.status === 'Lost';
-    const result = item.status === 'Won' || item.status === 'Lost';
+  const letterGen = !!item.letter;
+  const sent = item.aiReviewRequested || item.status === 'Sent' || item.status === 'Won' || item.status === 'Lost';
+  const result = item.aiAnalysisApplied || item.status === 'Won' || item.status === 'Lost';
     const mapStatus = (cond) => cond ? 'finish' : 'wait';
-    const currentIndex = result ? 5 : sent ? 4 : letterGen ? 3 : evidenceDone ? 2 : dataCollected ? 1 : 0;
+    const currentIndex = fresh ? 0 : (result ? 5 : sent ? 4 : letterGen ? 3 : evidenceDone ? 2 : dataCollected ? 1 : 0);
+    if(fresh){
+      return {
+        currentIndex: 0,
+        items: [
+          { title: 'Creat', status: 'finish', description: new Date(item.history?.[0]?.at || item.lastUpdate).toLocaleDateString() },
+            { title: 'Date colectate', status: 'wait', description: '—' },
+          { title: 'Dovezi', status: 'wait', description: '0%' },
+          { title: 'Scrisoare', status: 'wait', description: '—' },
+          { title: 'Trimis', status: 'wait', description: '—' },
+          { title: 'Rezultat', status: 'wait', description: '—' },
+        ]
+      };
+    }
     return {
       currentIndex,
       items: [
@@ -138,30 +168,62 @@ export default function CaseDetails(){
             </Dropdown>
             <Tag color={slaInfo.color} style={{fontSize:14,padding:'4px 10px'}}>SLA {slaInfo.text}</Tag>
           </Space>
-          <div style={{display:'flex',flexWrap:'wrap',gap:16,marginLeft:'auto'}}>
+          <div style={{display:'flex',flexWrap:'wrap',gap:16,marginLeft:'auto',alignItems:'center'}}>
             <div style={{minWidth:180}}>
               <div style={{fontSize:12,opacity:.6}}>Recomandare AI</div>
-              <div style={{fontWeight:600,fontSize:16}}><Tag color={item.recommendation==='Fight'?'green':'volcano'} style={{marginRight:4}}>{item.recommendation}</Tag></div>
+              {(() => { const hasAI = (item.events||[]).some(e=> e.action===EA.AI_RECOMMENDATION); return (
+                <div style={{fontWeight:600,fontSize:16}}>
+                  {hasAI ? <Tag color={item.recommendation==='Fight'?'green':'volcano'} style={{marginRight:4}}>{item.recommendation}</Tag> : <Tag color='default'>?</Tag>}
+                </div>
+              ); })()}
             </div>
             <div style={{minWidth:120}}>
               <div style={{fontSize:12,opacity:.6}}>Prob. câștig</div>
-              <div style={{fontWeight:600,fontSize:16}}>{Math.round(item.probability*100)}%</div>
+              {(() => { const hasAI = (item.events||[]).some(e=> e.action===EA.AI_RECOMMENDATION); return (
+                <div style={{fontWeight:600,fontSize:16}}>{hasAI ? `${Math.round(item.probability*100)}%` : '??'}</div>
+              ); })()}
             </div>
             <div style={{minWidth:170}}>
               <div style={{fontSize:12,opacity:.6}}>Impact (Fight vs Refund)</div>
               <div style={{fontWeight:600,fontSize:16}}>{item.amount} {item.currency}</div>
             </div>
-            <div style={{display:'flex',gap:8}}>
-              <Tooltip title='Re-evaluează AI (mock)'><Button icon={<ReloadOutlined/>} onClick={()=>regenerateAnalysis(item.id)} /></Tooltip>
-              <Tooltip title='Generează scrisoare'><Button icon={<FileTextOutlined/>} onClick={onGenLetter} loading={generating} /></Tooltip>
-              {item.status==='Open' && <Tooltip title='Start'><Button icon={<BranchesOutlined/>} onClick={()=>changeStatus(item.id,'In Progress')} /></Tooltip>}
-              {item.status==='In Progress' && <Tooltip title={canSend? 'Marchează trimis':'Necesită dovezi minime'}><Button type='primary' disabled={!canSend} icon={<SendOutlined/>} onClick={markSent} /></Tooltip>}
-              {item.status==='Sent' && <Tooltip title='Câștigat'><Button type='primary' icon={<FileDoneOutlined/>} onClick={markWon} /></Tooltip>}
-              {item.status==='Sent' && (
-                <Tooltip title='Pierdut'>
-                  <Button danger onClick={markLost}>Pierdut</Button>
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              <Tooltip title='Generează scrisoare'>
+                <Button size='small' icon={<FileTextOutlined/>} onClick={onGenLetter} loading={generating} style={{width:34,height:34,padding:0,display:'flex',alignItems:'center',justifyContent:'center'}} />
+              </Tooltip>
+              {item.status==='In Progress' && (
+                <Tooltip title={canSend? 'Marchează trimis':'Necesită dovezi minime'}>
+                  <Button size='small' type='primary' disabled={!canSend} icon={<SendOutlined/>} onClick={markSent} style={{width:34,height:34,padding:0,display:'flex',alignItems:'center',justifyContent:'center'}} />
                 </Tooltip>
               )}
+              {item.status==='Open' && (
+                <Tooltip title='Marchează în progres'>
+                  <Button size='small' icon={<BranchesOutlined/>} onClick={()=>changeStatus(item.id,'In Progress')} style={{width:34,height:34,padding:0,display:'flex',alignItems:'center',justifyContent:'center'}} />
+                </Tooltip>
+              )}
+              {item.status==='Sent' && (
+                <Tooltip title='Câștigat'>
+                  <Button size='small' type='primary' icon={<FileDoneOutlined/>} onClick={markWon} style={{width:34,height:34,padding:0,display:'flex',alignItems:'center',justifyContent:'center'}} />
+                </Tooltip>
+              )}
+              {item.status==='Sent' && (
+                <Tooltip title='Pierdut'>
+                  <Button size='small' danger icon={<CloseOutlined/>} onClick={markLost} style={{width:34,height:34,padding:0,display:'flex',alignItems:'center',justifyContent:'center'}} />
+                </Tooltip>
+              )}
+              <Tooltip title='Trimite pentru revizuire AI'>
+                <Button size='small' type='primary' icon={<RobotOutlined/>} onClick={()=>{
+                  let letter = item.letter;
+                  if(!letter){
+                    letter = generateLetter(item.id);
+                  }
+                  const reviewMsg = `Scrisoare trimisă spre revizuire AI. Include:\nID Caz: ${item.id}\nMotiv: ${item.reason}\nSumă: ${item.amount} ${item.currency}\nFișiere atașate: ${item.attachments?.map(a=>a.name).join(', ') || 'niciunul'}\n--- DRAFT SCRISOARE ---\n${letter}`;
+                  const attachForChat = (item.attachments||[]).slice(0,8).map(a=>({ id:a.id, name:a.name, type: a.type?.startsWith('image/') ? 'image':'file', url:a.url }));
+                  updateCase(item.id, { aiReviewRequested: true }, 'AI review requested', 'ai');
+                  navigate('/ai', { state: { item: { id: item.id, amount: item.amount, currency: item.currency, status: item.status, label: item.short_description || item.reason }, prefill: reviewMsg, attachments: attachForChat } });
+                  message.success('Trimis către AI');
+                }} style={{width:34,height:34,padding:0,display:'flex',alignItems:'center',justifyContent:'center',marginLeft:12}} />
+              </Tooltip>
             </div>
           </div>
         </div>
@@ -222,10 +284,13 @@ export default function CaseDetails(){
         <Card title='Atașamente' style={{borderRadius:18}} bodyStyle={{padding:'12px 16px 12px'}} extra={<Upload beforeUpload={beforeUpload} showUploadList={false}><Button size='small' icon={<PlusOutlined/>}>Upload</Button></Upload>}>
           <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
             {attachmentsSafe.map(a => (
-              <div key={a.id} style={{width:160,padding:10,border:'1px solid #eee',borderRadius:12,background:'#fafafa',display:'flex',flexDirection:'column',gap:6}}>
-                <div style={{fontSize:12,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} title={a.name}>{a.name}</div>
+              <div key={a.id} style={{width:170,padding:10,border:'1px solid #eee',borderRadius:12,background:'#fafafa',display:'flex',flexDirection:'column',gap:6,position:'relative'}}>
+                <Button size='small' type='text' danger style={{position:'absolute',top:2,right:2,padding:0,width:20,height:20,lineHeight:'18px'}} onClick={()=>removeAttachment(item.id,a.id)}>
+                  ×
+                </Button>
+                <div style={{fontSize:12,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:12}} title={a.name}>{a.name}</div>
                 <div style={{fontSize:10,opacity:.6}}>{(a.size/1024).toFixed(1)} KB</div>
-                <Button size='small' onClick={()=>message.info('Marcat pentru scrisoare (demo)')}>Folosește</Button>
+                <Button size='small' type='primary' onClick={()=>setPreviewAttachment(a)}>Open</Button>
               </div>
             ))}
             {attachmentsSafe.length===0 && <div style={{fontSize:12,opacity:.6}}>Nimic încă.</div>}
@@ -251,22 +316,75 @@ export default function CaseDetails(){
 
       {/* NOTES & ACTIVITY */}
       <div style={{display:'grid',gap:18,gridTemplateColumns:'repeat(auto-fit,minmax(420px,1fr))'}}>
-  <Card title='Notițe interne' style={{borderRadius:18}} bodyStyle={{padding:'12px 16px 16px'}} extra={<span style={{fontSize:12,opacity:.6}}>{notesSafe.length}</span>}>
-          <List
-            size='small'
-            dataSource={[...notesSafe].sort((a,b)=>b.at-a.at)}
-            locale={{emptyText:'Nicio notiță'}}
-            renderItem={n => (
-              <List.Item style={{padding:'6px 4px'}}>
-                <div style={{display:'flex',flexDirection:'column',fontSize:12}}>
-                  <span style={{fontWeight:600}}>{n.author} <span style={{opacity:.6,fontWeight:400}}>{new Date(n.at).toLocaleString([], { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short'})}</span></span>
-                  <span style={{whiteSpace:'pre-wrap'}}>{n.text}</span>
+  <Card title='Dosar caz & notițe interne' style={{borderRadius:18}} bodyStyle={{padding:'12px 16px 16px', display:'flex', flexDirection:'column', gap:12}} extra={<span style={{fontSize:12,opacity:.6}}>{notesSafe.length}</span>}>
+          <div style={{display:'grid',gap:8,gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              <label style={{fontSize:11,opacity:.7}}>Nume comerciant *</label>
+              <Input size='small' value={metaDraft.merchant_name} onChange={e=>setMetaDraft(prev=>({...prev, merchant_name:e.target.value}))} placeholder='Ex: SC Exemplu SRL' />
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              <label style={{fontSize:11,opacity:.7}}>Nume client (mascat)</label>
+              <Input size='small' value={metaDraft.customer_masked_name} onChange={e=>setMetaDraft(prev=>({...prev, customer_masked_name:e.target.value}))} placeholder='Ex: I*** P***' />
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              <label style={{fontSize:11,opacity:.7}}>Email client (mascat)</label>
+              <Input size='small' value={metaDraft.customer_masked_email} onChange={e=>setMetaDraft(prev=>({...prev, customer_masked_email:e.target.value}))} placeholder='i***@domeniu.ro' />
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              <label style={{fontSize:11,opacity:.7}}>Data tranzacției</label>
+              <DatePicker size='small' style={{width:'100%'}} value={metaDraft.transaction_date? dayjs(metaDraft.transaction_date): null} onChange={(d)=> setMetaDraft(prev=>({...prev, transaction_date: d? d.valueOf(): null}))} />
+            </div>
+            <div style={{gridColumn:'1 / -1', display:'flex',flexDirection:'column',gap:4}}>
+              <label style={{fontSize:11,opacity:.7}}>Descriere scurtă *</label>
+              <Input.TextArea size='small' value={metaDraft.short_description} onChange={e=>setMetaDraft(prev=>({...prev, short_description:e.target.value}))} rows={2} placeholder='Situație pe scurt (max 300 caractere)' maxLength={300} />
+            </div>
+            <div style={{gridColumn:'1 / -1', display:'flex',flexDirection:'column',gap:4}}>
+              <label style={{fontSize:11,opacity:.7}}>Acțiuni deja făcute</label>
+              <Input.TextArea size='small' value={metaDraft.actions_taken} onChange={e=>setMetaDraft(prev=>({...prev, actions_taken:e.target.value}))} rows={2} placeholder='Ex: contactat client, verificat livrare, inițiat refund parțial' maxLength={400} />
+            </div>
+            <div style={{gridColumn:'1 / -1'}}>
+              <Button size='small' type='primary' onClick={()=>{
+                const prev = {
+                  merchant_name: item.merchant_name||'',
+                  customer_masked_name: item.customer_masked_name||'',
+                  customer_masked_email: item.customer_masked_email||'',
+                  transaction_date: item.transaction_date||null,
+                  short_description: item.short_description||'',
+                  actions_taken: item.actions_taken||''
+                };
+                updateCase(item.id, { ...metaDraft });
+                // Build change summary
+                const changed = [];
+                if(prev.merchant_name !== metaDraft.merchant_name) changed.push(`merchant=${metaDraft.merchant_name||'-'}`);
+                if(prev.customer_masked_name !== metaDraft.customer_masked_name) changed.push(`client_nume=${metaDraft.customer_masked_name||'-'}`);
+                if(prev.customer_masked_email !== metaDraft.customer_masked_email) changed.push(`client_email=${metaDraft.customer_masked_email||'-'}`);
+                if(prev.transaction_date !== metaDraft.transaction_date) changed.push('data_txn');
+                if(prev.short_description !== metaDraft.short_description) changed.push('descriere');
+                if(prev.actions_taken !== metaDraft.actions_taken) changed.push('actiuni');
+                const note = changed.length ? `Dosar actualizat: ${changed.join('; ')}` : 'Dosar salvat fără modificări';
+                addNote(item.id, note, 'System');
+                message.success('Date dosar salvate');
+              }}>Salvează date dosar</Button>
+            </div>
+          </div>
+          <Input.TextArea value={noteText} onChange={e=>setNoteText(e.target.value)} rows={3} placeholder='Adaugă notiță...' style={{marginTop:4}} />
+          <Button type='primary' size='small' style={{marginTop:6, alignSelf:'flex-start'}} onClick={addNoteHandler}>Adaugă</Button>
+          <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:4, maxHeight:320, overflowY:'auto', paddingRight:4}}>
+            {[...notesSafe].sort((a,b)=>b.at-a.at).map(n => {
+              const isSystem = (n.author||'').toLowerCase()==='system' || n.text.startsWith('Dosar actualizat');
+              return (
+                <div key={n.id} style={{border:'1px solid #e5e7eb', background:isSystem?'#f5faff':'#fafafa', borderRadius:12, padding:'10px 14px', position:'relative'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                    <span style={{fontSize:11,fontWeight:600,letterSpacing:.5, color:isSystem?'#1677ff':'#555'}}>{isSystem? 'INFORMAȚII DOSAR':'NOTIȚĂ INTERNĂ'}</span>
+                    <span style={{fontSize:11,opacity:.55}}>{new Date(n.at).toLocaleString([], { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short'})}</span>
+                  </div>
+                  <div style={{fontSize:12,whiteSpace:'pre-wrap',lineHeight:1.4}}>{n.text}</div>
+                  <div style={{marginTop:6,fontSize:11,opacity:.55}}>autor: {n.author||'—'}</div>
                 </div>
-              </List.Item>
-            )}
-          />
-          <Input.TextArea value={noteText} onChange={e=>setNoteText(e.target.value)} rows={3} placeholder='Adaugă notiță...' style={{marginTop:8}} />
-          <Button type='primary' size='small' style={{marginTop:6}} onClick={addNoteHandler}>Adaugă</Button>
+              );
+            })}
+            {notesSafe.length===0 && <div style={{fontSize:12,opacity:.6}}>Nicio notiță încă.</div>}
+          </div>
         </Card>
   <Card title='Activitate' style={{borderRadius:18}} bodyStyle={{padding:'12px 16px 12px'}} extra={<span style={{fontSize:12,opacity:.6}}>{activitySafe.length}</span>}>
           <div style={{maxHeight:300,overflowY:'auto',display:'flex',flexDirection:'column',gap:4}}>
@@ -288,6 +406,36 @@ export default function CaseDetails(){
         <Divider />
         <Alert type='warning' showIcon message='Revizuiește și maschează date sensibile înainte de a trimite.' />
       </Modal>
+      <Modal
+        open={!!previewAttachment}
+        title={previewAttachment?.name}
+        width={previewAttachment?.type?.startsWith('application/pdf') ? 900 : 600}
+        onCancel={()=>setPreviewAttachment(null)}
+        footer={[
+          <Button key='dl' onClick={()=>{ if(previewAttachment){ const a=document.createElement('a'); a.href=previewAttachment.url; a.download=previewAttachment.name; a.click(); } }}>Download</Button>,
+          <Button key='close' type='primary' onClick={()=>setPreviewAttachment(null)}>Close</Button>
+        ]}
+      >
+        {previewAttachment && (
+          <div style={{maxHeight:'70vh',overflow:'auto'}}>
+            {previewAttachment.type?.startsWith('image/') && (
+              <img alt={previewAttachment.name} src={previewAttachment.url} style={{maxWidth:'100%'}} />
+            )}
+            {previewAttachment.type==='application/pdf' && (
+              <iframe title='pdf' src={previewAttachment.url} style={{width:'100%',height:'70vh',border:'1px solid #eee',borderRadius:8}} />
+            )}
+            {previewAttachment.type?.startsWith('text/') && (
+              <iframe title='text' src={previewAttachment.url} style={{width:'100%',height:'60vh',border:'1px solid #eee',borderRadius:8,background:'#fff'}} />
+            )}
+            {!previewAttachment.type && (
+              <div style={{fontSize:12}}>Tip fișier necunoscut. Încearcă descărcarea.</div>
+            )}
+            {previewAttachment.type && !previewAttachment.type.startsWith('image/') && previewAttachment.type!=='application/pdf' && !previewAttachment.type.startsWith('text/') && (
+              <div style={{fontSize:12}}>Previzualizare indisponibilă pentru acest tip. Folosește Download.</div>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* DECISION / AUDIT TIMELINE */}
       <Card title='Istoric decizii' style={{borderRadius:18}} bodyStyle={{padding:'12px 16px 16px'}} extra={
@@ -297,7 +445,7 @@ export default function CaseDetails(){
           ))}
         </Space>
       }>
-        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+  <div style={{display:'flex',flexDirection:'column',gap:10, maxHeight:380, overflowY:'auto', paddingRight:4}}>
           {[...eventsSafe]
             .sort((a,b)=>b.at-a.at)
             .filter(e => eventFilter==='all' ? true : e.category===eventFilter)

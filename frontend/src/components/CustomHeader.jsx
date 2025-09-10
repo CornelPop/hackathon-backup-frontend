@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Button,
     Input,
@@ -53,12 +53,24 @@ export default function CustomHeader({ sticky = true, onCreated }) {
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [form] = Form.useForm();
+    const [currentUser, setCurrentUser] = useState(null);
+
+    useEffect(()=>{
+        try { setCurrentUser(JSON.parse(localStorage.getItem('cb_user'))); } catch(_) { /* ignore */ }
+    }, []);
 
     const {
         token: { colorPrimary, colorBgContainer },
     } = theme.useToken();
 
-    const handleOpen = () => setModalOpen(true);
+    const handleOpen = () => {
+        setModalOpen(true);
+        // Pre-fill receiver with current user email if available
+        const email = currentUser?.email;
+        if(email){
+            form.setFieldsValue({ receiver: email });
+        }
+    };
     const handleCancel = () => {
         setModalOpen(false);
         form.resetFields();
@@ -72,11 +84,12 @@ export default function CustomHeader({ sticky = true, onCreated }) {
                 amount: parseFloat(values.amount),
                 currency: values.currency,
                 label: values.description || 'No description',
-                receiver_account: values.receiver,
+                receiver_account: currentUser?.email || values.receiver,
                 transaction_type: values.transaction_type || null,
                 payment_channel: values.channel,
                 merchant_category: values.category,
-                fraud_type: values.fraud_type || null
+                fraud_type: values.fraud_type || null,
+                status: values.status || 'OPEN'
             };
             const resp = await fetch('http://localhost:8000/payments', {
                 method: 'POST',
@@ -144,19 +157,16 @@ export default function CustomHeader({ sticky = true, onCreated }) {
                 okText="Submit"
             >
                 <Form layout="vertical" form={form}>
-                    <Form.Item
-                        label="Receiver Account"
-                        name="receiver"
-                        rules={[{ required: true, message: "Please select a receiver" }]}
-                    >
-                        <Select
-                            showSearch
-                            placeholder="Search and select"
-                            filterOption={(input, option) =>
-                                option?.label?.toLowerCase().includes(input.toLowerCase())
-                            }
-                            options={receiverOptions}
-                        />
+                    <Form.Item label="Status" name="status" initialValue="OPEN" rules={[{ required: true, message: 'Select status'}]}>
+                        <Select options={[
+                            {label:'Open', value:'OPEN'},
+                            {label:'Successful', value:'SUCCESSFUL'},
+                            {label:'Flagged', value:'FLAGGED'},
+                            {label:'Failed', value:'FAILED'},
+                        ]} />
+                    </Form.Item>
+                    <Form.Item label="Receiver (current user)" name="receiver" initialValue={currentUser?.email} rules={[{ required: true, message: 'Receiver required'}]}>
+                        <Input readOnly value={currentUser?.email} placeholder="Not logged" />
                     </Form.Item>
                     <Form.Item label="Transaction Type" name="transaction_type">
                         <Input placeholder="e.g. purchase / refund" />

@@ -53,8 +53,25 @@ export default function CasesPage() {
     },
     { title: 'Reason', dataIndex: 'reason', key: 'reason', width: 140 },
     { title: 'Amount', key: 'amount', width: 120, sorter: (a,b)=> (a.amount - b.amount), render: (_,r)=> <span style={{fontWeight:r.amount>1000?600:500}}>{r.amount} {r.currency}</span> },
-    { title: 'Prob.', dataIndex: 'probability', key: 'probability', width: 110, render: v => <Progress percent={Math.round(v*100)} size="small" strokeColor={v>0.6? '#52c41a': v>0.4? '#1677ff':'#faad14'} /> },
-    { title: 'Rec.', dataIndex: 'recommendation', key: 'recommendation', width: 110, render: v => <Tag color={v==='Fight'?'green':'volcano'} style={{marginRight:0}}>{v}</Tag> },
+    { title: 'Prob.', dataIndex: 'probability', key: 'probability', width: 110, render: (_, r) => {
+        const fresh = r.status === 'Open'
+          && !(r.events||[]).some(e=> e.action==='ai_recommendation')
+          && !(r.checklist||[]).some(i=> i.status==='ok')
+          && !r.letter;
+        if(fresh) return <Tag color='default'>??</Tag>;
+        const v = r.probability || 0;
+        return <Progress percent={Math.round(v*100)} size="small" strokeColor={v>0.6? '#52c41a': v>0.4? '#1677ff':'#faad14'} />;
+      }
+    },
+    { title: 'Rec.', dataIndex: 'recommendation', key: 'recommendation', width: 110, render: (v, r) => {
+        const fresh = r.status === 'Open'
+          && !(r.events||[]).some(e=> e.action==='ai_recommendation')
+          && !(r.checklist||[]).some(i=> i.status==='ok')
+          && !r.letter;
+        if(fresh) return <Tag color='default'>?</Tag>;
+        return <Tag color={v==='Fight'?'green':'volcano'} style={{marginRight:0}}>{v}</Tag>;
+      }
+    },
     { title: 'Owner', dataIndex: 'owner', key: 'owner', width: 110 },
     { title: 'Last update', dataIndex: 'lastUpdate', key: 'lastUpdate', width: 140, sorter:(a,b)=>a.lastUpdate-b.lastUpdate, render: v=> new Date(v).toLocaleString([], { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short'}) },
     { title: 'SLA', dataIndex: 'deadline', key: 'deadline', width: 140, render: d => {
@@ -73,7 +90,7 @@ export default function CasesPage() {
         <Typography.Title level={3} style={{margin:0}}>Cases</Typography.Title>
         <span style={{fontSize:12,opacity:.6}}>Total: {cases.length}</span>
       </div>
-      <Card bodyStyle={{padding:16}} style={{borderRadius:16}}>
+  <Card bodyStyle={{padding:16}} style={{borderRadius:16}}>
         <Space wrap size={12} style={{display:'flex'}}>
           <Input.Search value={search} onChange={e=>setSearch(e.target.value)} placeholder='Search case ID / reason' style={{width:240}} allowClear />
           <Dropdown
@@ -96,7 +113,8 @@ export default function CasesPage() {
               const id = 'CB-'+Math.floor(1000+Math.random()*9000);
               // simple add
               const now = Date.now();
-              const extra = { id, status: 'Open', reason: 'Abonament', amount: Math.floor(Math.random()*900+50), currency: 'RON', probability: Math.random(), recommendation: Math.random()>0.5? 'Fight':'Refund', owner: '—', lastUpdate: now, deadline: now + 1000*60*60*(24+Math.random()*120), letter: '', history:[{at:now,text:'Case created'}] };
+              let email = null; try { email = JSON.parse(localStorage.getItem('cb_user'))?.email; } catch(_) {}
+              const extra = { id, status: 'Open', reason: 'Abonament', amount: Math.floor(Math.random()*900+50), currency: 'RON', probability: Math.random(), recommendation: Math.random()>0.5? 'Fight':'Refund', owner: email || '—', lastUpdate: now, deadline: now + 1000*60*60*(24+Math.random()*120), letter: '', history:[{at:now,text:'Case created'}] };
               // use changeStatus trick by updating context via updateCase
               // We'll directly update by localStorage bypass (quick hack) - better to expose addCase but fine now
               // patch using localStorage state mutation pattern

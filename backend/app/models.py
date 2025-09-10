@@ -22,6 +22,18 @@ class UserRole(str, enum.Enum):
     admin = 'admin'
     user = 'user'
 
+class ClientIssueReason(str, enum.Enum):
+    not_recognized = 'NOT_RECOGNIZED'
+    undelivered = 'UNDELIVERED'
+    subscription_canceled_but_charged = 'SUB_CANCEL_CHARGED'
+    double_charge = 'DOUBLE_CHARGE'
+    stolen_card = 'STOLEN_CARD'
+    not_as_described = 'NOT_AS_DESCRIBED'
+    family_fraud = 'FAMILY_FRAUD'
+    trial_auto_renew = 'TRIAL_AUTORENEW'
+    successful = 'SUCCESSFUL'
+    failed = 'FAILED'
+
 class Payment(Base):
     __tablename__ = 'payment'
     id = Column(String, primary_key=True)  # Transaction ID
@@ -45,6 +57,8 @@ class Payment(Base):
     currency = Column(String(8), default='RON')  # Keep for amount context
     label = Column(String, nullable=False)  # Original description / label
     status = Column(Enum(PaymentStatus), default=PaymentStatus.open, index=True)
+    flag_category = Column(String, nullable=True, index=True)  # RISK | DISPUTE
+    flag_reason = Column(String, nullable=True)  # code (e.g. AVS_CVV_FAIL_NO_3DS or NOT_RECOGNIZED)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     # reverse link for cases referencing payment_id
@@ -134,3 +148,19 @@ class Note(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     case = relationship('Case', back_populates='notes')
     author_user = relationship('User', back_populates='notes')
+
+class ClientProfile(Base):
+    __tablename__ = 'client_profiles'
+    id = Column(String, primary_key=True)
+    email_masked = Column(String, index=True, nullable=False)
+    country = Column(String, nullable=True)
+    first_seen = Column(DateTime, default=datetime.utcnow)
+    last_activity = Column(DateTime, default=datetime.utcnow, index=True)
+    total_payments = Column(Integer, default=0)
+    disputed_payments = Column(Integer, default=0)
+    chargeback_win_rate = Column(Float, default=0.0)
+    average_ticket = Column(Float, default=0.0)
+    lifetime_value = Column(Float, default=0.0)
+    reason = Column(Enum(ClientIssueReason), default=ClientIssueReason.successful, index=True)
+    notes = Column(Text, nullable=True)
+    risk_trigger = Column(String, nullable=True, index=True)  # code for risk-only scenarios

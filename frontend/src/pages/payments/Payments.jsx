@@ -43,9 +43,11 @@ const FALLBACK_INVOICES = Array.from({length: 12}).map((_, i) => {
 });
 
 import { usePayments } from './PaymentsContext';
+import { useCases } from '../cases/CasesContext';
 
 export default function Payments({ onPay}) {
     const { payments, loaded, error, addPayment } = usePayments();
+    const { addCase } = useCases();
     // Use fallback only before remote load completes; once loaded show actual list (even if empty)
     const invoices = !loaded ? FALLBACK_INVOICES : payments.map(p => ({
         id: p.id,
@@ -80,7 +82,14 @@ export default function Payments({ onPay}) {
     const [processing, setProcessing] = useState(false);
     const [processStep, setProcessStep] = useState(0);
     const [retryOutcome, setRetryOutcome] = useState(null); // 'success' | 'failure' | null
-    const [overrides, setOverrides] = useState({}); // id -> { status, attempts:[{id,time,result,reason}] }
+    const [overrides, setOverrides] = useState(()=>{ // restore persisted simulation meta
+        try { return JSON.parse(localStorage.getItem('cb_payment_sim_meta')) || {}; } catch(_) { return {}; }
+    }); // id -> { status, attempts:[{id,time,result,reason}], client?: {...profile} }
+    const [simRunning, setSimRunning] = useState(false);
+    const [simStep, setSimStep] = useState(0);
+    const [simError, setSimError] = useState(null);
+    const simTimersRef = React.useRef([]);
+    const simPhases = ['Inițiere sesiune client','Contact procesator','Așteptare răspuns bancă'];
 
     function handlePay(inv){
         const link = `https://pay.example.com/checkout/${inv.id}?amt=${inv.amount}&cur=${inv.currency}`;
@@ -98,6 +107,43 @@ export default function Payments({ onPay}) {
     }
 
     const closeModal = () => { setPaying(null); setSending(false); setSent(false); setCopied(false); };
+    const resetSimulation = () => { simTimersRef.current.forEach(id=>clearTimeout(id)); simTimersRef.current=[]; setSimRunning(false); setSimStep(0); setSimError(null); };
+    const simulateClient = () => {
+        if(!paying || simRunning) return;
+        setSimError(null);
+        setSimRunning(true);
+        setSimStep(0);
+        const base = 600 + Math.random()*250; // 0.6 - 0.85s
+        simPhases.forEach((_, idx) => {
+            const t = setTimeout(()=> setSimStep(s => Math.min(s+1, simPhases.length)), base*(idx+1));
+            simTimersRef.current.push(t);
+        });
+        const finalT = setTimeout(async ()=>{
+            try {
+                const resp = await fetch(`http://localhost:8000/payments/${paying.id}/simulate`, { method:'POST' });
+                if(!resp.ok){ const txt=await resp.text(); throw new Error(txt||'Simulation failed'); }
+                const data = await resp.json();
+                // Persist flag metadata + client profile for downstream UI (risk vs dispute differentiation)
+                setOverrides(prev => ({
+                    ...prev,
+                    [paying.id]: {
+                        ...(prev[paying.id]||{status: paying.status, attempts: []}),
+                        status: data.payment.status,
+                        client: data.client,
+                        flag_category: data.payment.flag_category || null,
+                        flag_reason: data.payment.flag_reason || null
+                    }
+                }));
+                if(data.outcome==='success') message.success('Client: payment approved');
+                else if(data.outcome==='failed') message.error('Client: payment failed');
+                else if(data.outcome==='flagged') { message.warning('Client: payment flagged (dispute risk)'); if(data.case_id){ addCase({ reason: 'Auto case from flagged payment', amount: paying.amount, currency: paying.currency, historyNote: 'Generated via simulation', recommendation: 'Review' }); } }
+                resetSimulation();
+                closeModal();
+            } catch(e){ setSimError(e.message||'Eroare simulare'); setSimRunning(false); }
+        }, base*simPhases.length + 800);
+        simTimersRef.current.push(finalT);
+    };
+    const closeWithCleanup = () => { resetSimulation(); closeModal(); };
     const closeRetry = () => { setRetrying(null); setProcessing(false); setRetryOutcome(null); setProcessStep(0); };
 
         const copyLink = () => {
@@ -171,8 +217,16 @@ export default function Payments({ onPay}) {
 
             // Merge overrides into invoices rendered
             const effectiveInvoices = useMemo(()=> {
-                return filtered.map(inv => overrides[inv.id] ? { ...inv, status: overrides[inv.id].status } : inv);
+                    return filtered.map(inv => {
+                        const ov = overrides[inv.id];
+                        return ov ? { ...inv, status: ov.status, _client: ov.client, flag_category: ov.flag_category ?? inv.flag_category, flag_reason: ov.flag_reason ?? inv.flag_reason } : inv;
+                    });
             }, [filtered, overrides]);
+
+    // Persist overrides (client simulation metadata) whenever they change
+    useEffect(()=>{
+        try { localStorage.setItem('cb_payment_sim_meta', JSON.stringify(overrides)); } catch(_) {}
+    }, [overrides]);
 
         return (
         <Content
@@ -198,7 +252,7 @@ export default function Payments({ onPay}) {
                     <Segmented
                         value={filter}
                         onChange={(val) => setFilter(String(val))}
-                        options={["ALL", "OPEN", "SUCCESSFUL", "FLAGGED", "FAILED"]}
+                        options={["ALL", "OPEN", "SUCCESSFUL", "FLAGGED", "FAILED", "REFUNDED", "CANCELED", "EXPIRED"]}
                         size="large"
                     />
                     <Text type="secondary">
@@ -228,7 +282,7 @@ export default function Payments({ onPay}) {
                     {effectiveInvoices.map((item) => (
                         <Col key={item.id} xs={24} sm={24} md={12} lg={8} xl={8} xxl={8} style={{display: "flex"}}>
                             <div style={{width: "100%"}}>
-                                                                <InvoiceCard item={item} onPay={handlePay} onRetry={handleRetry}/>
+                                <InvoiceCard item={item} onPay={handlePay} onRetry={handleRetry} clientMeta={overrides[item.id]?.client || item._client} />
                             </div>
                         </Col>
                     ))}
@@ -236,27 +290,51 @@ export default function Payments({ onPay}) {
             </div>
                         <Modal
                             open={!!paying}
-                            onCancel={closeModal}
+                            onCancel={closeWithCleanup}
                             title={paying? `Collect payment – ${paying.id}`:''}
                             footer={null}
                         >
                             {paying && (
-                                <div style={{display:'flex',flexDirection:'column',gap:16}}>
-                                    <div style={{display:'grid',gap:8,fontSize:13}}>
+                                <div style={{display:'flex',flexDirection:'column',gap:18}}>
+                                    <div style={{display:'grid',gap:6,fontSize:13}}>
                                         <div><b>Amount:</b> {paying.amount} {paying.currency}</div>
                                         <div><b>Description:</b> {paying.label}</div>
-                                        <div><b>Status:</b> <Tag color={paying.status==='OPEN'?'blue':paying.status==='FLAGGED'?'orange':paying.status==='FAILED'?'red':'green'} style={{marginLeft:4}}>{paying.status}</Tag></div>
+                                        <div><b>Status:</b> <Tag color={paying.status==='OPEN'?'blue':paying.status==='FLAGGED'?'orange':paying.status==='FAILED'?'red': paying.status==='SUCCESSFUL'? 'green': undefined}>{paying.status}</Tag></div>
                                     </div>
                                     <div style={{display:'flex',flexDirection:'column',gap:6}}>
                                         <span style={{fontSize:12,opacity:.7}}>Payment link</span>
                                         <Input value={genLink} readOnly />
-                                        <Space>
-                                              <Button onClick={copyLink} disabled={copied}>{copied? 'Copied' : 'Copy'}</Button>
-                                              <Button type={sent? 'default':'primary'} onClick={sendLink} loading={sending} disabled={sent} style={sent? {background:'#f5f5f5', color:'#555'}:undefined}>{sent? 'Sent' : 'Send'}</Button>
-                                              <Button onClick={()=> { if(sent) return; setGenLink(prev => prev + '&r='+Math.random().toString(36).slice(2,6)); }}>Regenerate</Button>
+                                        <Space wrap>
+                                              <Button onClick={()=> window.open(genLink,'_blank')}>Open checkout</Button>
+                                              <Button onClick={copyLink} disabled={copied}>{copied? 'Copied' : 'Copy link'}</Button>
+                                              <Button type={sent? 'default':'primary'} onClick={sendLink} loading={sending} disabled={sent}>{sent? 'Sent' : 'Send link'}</Button>
+                                              <Button onClick={()=> { if(sent) return; setGenLink(prev => prev.split('&r=')[0] + '&r='+Math.random().toString(36).slice(2,6)); }}>Regenerate</Button>
+                                              <Button danger onClick={()=>{ // cancel invoice
+                                                setOverrides(prev => ({ ...prev, [paying.id]: { ...(prev[paying.id]||{status: paying.status, attempts: []}), status: 'CANCELED' } }));
+                                                message.info('Invoice canceled');
+                                                closeModal();
+                                              }}>Cancel</Button>
                                         </Space>
                                     </div>
-                                    <div style={{fontSize:11,opacity:.6,lineHeight:1.4}}>Demo: aici ai putea adăuga opțiuni de validare email client, expirație link, canal trimitere (email/SMS), preview mesaj.</div>
+                                    <div style={{fontSize:11,opacity:.65,lineHeight:1.4}}>Link-ul rămâne OPEN până clientul finalizează; simularea alege aleator un profil client din baza locală și aplică logica reală (SUCCESSFUL / FAILED / FLAGGED + auto-case).</div>
+                                    <Divider style={{margin:'4px 0'}} />
+                                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                                        <span style={{fontSize:12,fontWeight:600}}>Simulează finalizarea de către client</span>
+                                        <Button type='primary' onClick={simulateClient} disabled={simRunning} loading={simRunning}>Rulează simulare client</Button>
+                                        {simRunning && (
+                                            <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:6,fontSize:11}}>
+                                                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                                    <span role='img' aria-label='hourglass'>⌛</span>
+                                                    <span>{simStep < simPhases.length ? simPhases[simStep] : 'Aplicare rezultat...'}</span>
+                                                </div>
+                                                <div style={{height:6,borderRadius:4,background:'#f0f0f0',overflow:'hidden'}}>
+                                                    <div style={{height:'100%',width:`${((simStep)/(simPhases.length+0.9))*100}%`,background:'#1677ff',transition:'width .4s ease'}} />
+                                                </div>
+                                            </div>
+                                        )}
+                                        {simError && <div style={{color:'#cf1322',fontSize:11}}>Eroare: {simError}</div>}
+                                        <div style={{fontSize:11,opacity:.55}}>Algoritm: profil reason SUCCESSFUL -&gt; SUCCESSFUL, FAILED -&gt; FAILED, motiv dispută -&gt; FLAGGED (+ caz); altfel fallback SUCCESSFUL.</div>
+                                    </div>
                                 </div>
                             )}
                         </Modal>

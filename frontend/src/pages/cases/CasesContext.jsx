@@ -13,6 +13,7 @@ export const STATUS_COLORS = {
 export const EVENT_ACTIONS = {
   STATUS_CHANGE: 'status_change',
   AI_RECOMMENDATION: 'ai_recommendation',
+  AI_REVIEW_REQUEST: 'ai_review_request',
   RULES_APPLIED: 'rules_applied',
   FILE_UPLOAD: 'file_upload',
   FILE_DELETE: 'file_delete',
@@ -84,7 +85,7 @@ const seedCases = () => {
       currency: 'RON',
       probability: 0.78,
       recommendation: 'Fight',
-      owner: 'Dana',
+  owner: 'Dana', // seed demo owner
       lastUpdate: now - 1000 * 60 * 60 * 3,
       deadline: now + 1000 * 60 * 60 * 55, // 55h
       letter: '',
@@ -103,7 +104,7 @@ const seedCases = () => {
       currency: 'RON',
       probability: 0.64,
       recommendation: 'Fight',
-      owner: 'Mihai',
+  owner: 'Mihai',
       lastUpdate: now - 1000 * 60 * 30,
       deadline: now + 1000 * 60 * 60 * 23, // 23h (red)
       letter: '',
@@ -122,7 +123,7 @@ const seedCases = () => {
       currency: 'EUR',
       probability: 0.42,
       recommendation: 'Refund',
-      owner: 'Irina',
+  owner: 'Irina',
       lastUpdate: now - 1000 * 60 * 60 * 11,
       deadline: now + 1000 * 60 * 60 * 120,
       letter: 'Draft existent ...',
@@ -148,6 +149,14 @@ function ensureCaseShape(c){
     activity: [],
     analysis: { reasons: [], rulesSummary: '' },
     events: [],
+  aiReviewRequested: c.aiReviewRequested || false,
+  aiAnalysisApplied: c.aiAnalysisApplied || false,
+  merchant_name: c.merchant_name || '',
+  customer_masked_name: c.customer_masked_name || '',
+  customer_masked_email: c.customer_masked_email || '',
+  transaction_date: c.transaction_date || null, // epoch ms or ISO string later
+  short_description: c.short_description || '',
+  actions_taken: c.actions_taken || '',
   history: [],
     ...c,
   history: (c.history && Array.isArray(c.history)) ? c.history : (c.lastUpdate ? [{ at: c.lastUpdate, text: 'Loaded' }] : []),
@@ -175,6 +184,9 @@ function ensureCaseShape(c){
 }
 
 export function CasesProvider({ children }) {
+  const currentUser = useMemo(()=> {
+    try { return JSON.parse(localStorage.getItem('cb_user')); } catch(_) { return null; }
+  }, []);
   const [cases, setCases] = useState(() => {
     try {
       const raw = localStorage.getItem('cb_cases');
@@ -186,6 +198,12 @@ export function CasesProvider({ children }) {
     return seedCases().map(ensureCaseShape);
   });
   const [loadedRemote, setLoadedRemote] = useState(false);
+
+  // Auto-assign missing owners to current user on mount / login
+  useEffect(()=>{
+    if(!currentUser?.email) return;
+    setCases(prev => prev.map(c => (!c.owner || c.owner==='—') ? { ...c, owner: currentUser.email } : c));
+  }, [currentUser]);
 
   // Attempt remote load (idempotent). If backend reachable, replace local data (shallow fields only for now)
   useEffect(()=>{
@@ -299,8 +317,102 @@ export function CasesProvider({ children }) {
   const generateLetter = useCallback((id, actor) => {
     const target = cases.find(c => c.id === id);
     if (!target) return '';
+
+    // Checklist breakdown
+    const chkReq = target.checklist.filter(i=>i.required);
+    const chkOpt = target.checklist.filter(i=>!i.required);
+    const fmtItem = i => `- ${i.label} [${i.status.toUpperCase()}]${i.naReason?` (N/A: ${i.naReason})`:''}${i.extracted?` -> ${i.extracted}`:''}`;
+    const checklistSection = [
+      'SECȚIUNEA DOVEZI / CHECKLIST:',
+      'Obligatorii:',
+      chkReq.length ? chkReq.map(fmtItem).join('\n') : '(niciuna)',
+      'Opționale:',
+      chkOpt.length ? chkOpt.map(fmtItem).join('\n') : '(niciuna)'
+    ].join('\n');
+
+    // Attachments
+    const attachmentsSection = 'ATAȘAMENTE:\n' + (target.attachments.length ? target.attachments.map(a=>`- ${a.name} (${(a.size/1024).toFixed(1)} KB, ${a.type||'type necunoscut'})`).join('\n') : '(niciun fișier încărcat)');
+
+    // Notes (exclude system / dossier auto updates)
+    const userNotes = target.notes.filter(n => (n.author||'').toLowerCase() !== 'system' && !n.text.startsWith('Dosar actualizat'));
+    const notesSection = 'NOTIȚE INTERNE RELEVANTE:\n' + (userNotes.length ? userNotes.sort((a,b)=>a.at-b.at).map(n=>`- ${new Date(n.at).toLocaleDateString()} ${n.author||'User'}: ${n.text}`).join('\n') : '(niciuna)');
+
+    // Dossier meta
+    const dossier = `DOSAR CAZ:\nMerchant: ${target.merchant_name || '(necunoscut)'}\nClient (mascat): ${target.customer_masked_name || '-'}\nEmail client (mascat): ${target.customer_masked_email || '-'}\nData tranzacției: ${target.transaction_date ? new Date(target.transaction_date).toLocaleDateString() : '(necunoscută)'}\nDescriere scurtă: ${target.short_description || '(lipsește)'}\nAcțiuni deja făcute: ${target.actions_taken || '(nicio acțiune menționată)'}`;
+
+    // Evidence summary (only OK)
     const evid = target.checklist.filter(i => i.status === 'ok').map(i => `- ${i.label}${i.extracted?`: ${i.extracted}`:''}`).join('\n') || '(niciuna)';
-    const draft = `DRAFT SCRISOARE DISPUTĂ\nCase: ${target.id}\nMotiv: ${target.reason}\nSumă: ${target.amount} ${target.currency}\nRecomandare AI: ${target.recommendation} (${Math.round(target.probability*100)}%)\n\nDovezi:\n${evid}\n\nArgument (completează / ajustează):\n[Argument generat AI placeholder]\n\nCu stimă,\nMerchant`;
+    const evidenceSummary = 'REZUMAT DOVEZI CHEIE (OK):\n' + evid;
+
+    const intro = [
+      'CONTEXT CAZ PENTRU GENERARE SCRISOARE / ANALIZĂ AI',
+      `ID Caz: ${target.id}`,
+      `Motiv primar: ${target.reason}`,
+      `Sumă disputată: ${target.amount} ${target.currency}`,
+      `Owner intern: ${target.owner || '(neatribuit)'}`,
+      `Deadline intern (SLA): ${new Date(target.deadline).toLocaleString()}`,
+      'NOTĂ: Recomandarea AI curentă este deliberat exclusă din acest draft pentru a evita bias până la recalcularea modelului.',
+      ''
+    ].join('\n');
+
+    const argumentSkeleton = `ARGUMENT / STRUCTURĂ PROPUSĂ:\n1. Rezumat situație și motiv (fapte principale)\n2. Validare legală / contractuală (termeni, dovezi)\n3. Demontarea afirmațiilor clientului (dacă există)\n4. Dovezi tehnice / logistice cheie\n5. Concluzie + solicitare clară (menține fondurile / refuz chargeback)\n\n<Completează fiecare secțiune pe baza elementelor de mai sus.>`;
+
+    const disclaimer = `DISCLAIMER: Acest draft este generat din datele existente în aplicație și necesită revizuire umană. Verifică și maschează date sensibile (PII) înainte de trimitere.`;
+
+    // Structured JSON context (without AI recommendation) for optional downstream processing
+    const structured = {
+      case_id: target.id,
+      reason: target.reason,
+      amount: target.amount,
+      currency: target.currency,
+      owner: target.owner || null,
+      deadline: target.deadline,
+      dossier: {
+        merchant_name: target.merchant_name || null,
+        customer_masked_name: target.customer_masked_name || null,
+        customer_masked_email: target.customer_masked_email || null,
+        transaction_date: target.transaction_date || null,
+        short_description: target.short_description || null,
+        actions_taken: target.actions_taken || null
+      },
+      checklist: target.checklist.map(i=>({ id:i.id, label:i.label, required:i.required, status:i.status, extracted:i.extracted||null, naReason:i.naReason||null })),
+      attachments: target.attachments.map(a=>({ id:a.id, name:a.name, size:a.size, type:a.type })),
+      notes_internal: target.notes.filter(n => (n.author||'').toLowerCase() !== 'system' && !n.text.startsWith('Dosar actualizat')).map(n=>({ at:n.at, author:n.author, text:n.text })),
+      system_updates: target.notes.filter(n => (n.author||'').toLowerCase()==='system' || n.text.startsWith('Dosar actualizat')).map(n=>({ at:n.at, text:n.text }))
+    };
+
+    const draft = [
+      intro,
+      dossier,
+      '',
+      evidenceSummary,
+      '',
+      checklistSection,
+      '',
+      attachmentsSection,
+      '',
+      notesSection,
+      '',
+  'CERINȚĂ PENTRU MOTORUL AI:',
+  'Te rog, pe baza informațiilor de mai sus (fără a folosi alte surse), să calculezi:',
+  '- Probabilitatea (în %) de a câștiga disputa',
+  '- Recomandarea strategică: Fight sau Refund',
+  'Formatează rezultatul exact în JSON pe o singură linie: {"probability": <numar 0-100>, "recommendation": "Fight|Refund" }',
+  'Nu adăuga explicații suplimentare în acea linie de output JSON. Explicațiile pot veni într-o secțiune separată dacă este nevoie.',
+  'Dacă nu poți estima cu datele furnizate, întoarce JSON: {"probability": null, "recommendation": "Refund" } și explică motivele separat.',
+  'NU folosi alt format, nu schimba cheile și nu adăuga alte câmpuri în acel JSON.',
+  '',
+      'CONTEXT STRUCTURAT (JSON FĂRĂ RECOMANDARE AI):',
+      JSON.stringify(structured, null, 2),
+      '',
+      argumentSkeleton,
+      '',
+      disclaimer,
+      '',
+      'Cu stimă,',
+      'Echipa Merchant'
+    ].join('\n');
+
     const hash = Array.from(draft).reduce((h,ch)=>((h<<5)-h)+ch.charCodeAt(0)|0,0).toString(16);
     setCases(prev => prev.map(c => c.id === id ? (() => {
       let updated = { ...c, letter: draft, lastUpdate: Date.now(), history:[...c.history,{at:Date.now(),text:'Letter generated'}] };
@@ -330,6 +442,14 @@ export function CasesProvider({ children }) {
     })() : c));
   }, [logEvent]);
 
+  const removeAttachment = useCallback((id, attachmentId, actor) => {
+    setCases(prev => prev.map(c => c.id === id ? (() => {
+      let updated = addActivity({ ...c, attachments: c.attachments.filter(a => a.id !== attachmentId) }, `Attachment removed: ${attachmentId}`, 'attachment');
+      updated = logEvent(updated, { action: EVENT_ACTIONS.FILE_DELETE, actor, details:{ id: attachmentId }, category:'file' });
+      return updated;
+    })() : c));
+  }, [logEvent]);
+
   const addNote = useCallback((id, text, author='User') => {
     setCases(prev => prev.map(c => c.id === id ? (() => {
       let updated = addActivity({ ...c, notes: [...c.notes, { id: 'n-'+Date.now(), text, author, at: Date.now() }] }, `Note added`, 'note');
@@ -338,7 +458,68 @@ export function CasesProvider({ children }) {
     })() : c));
   }, [logEvent]);
 
-  const contextValue = useMemo(() => ({ cases, updateCase, changeStatus, generateLetter, updateChecklistItem, addAttachment, addNote, regenerateAnalysis, EVENT_ACTIONS, loadedRemote }), [cases, updateCase, changeStatus, generateLetter, updateChecklistItem, addAttachment, addNote, regenerateAnalysis, loadedRemote]);
+  // Apply AI chat extracted recommendation/probability (probabilityPercent 0-100)
+  const applyChatRecommendation = useCallback((id, probabilityPercent, recommendation, actor) => {
+    const prob = typeof probabilityPercent === 'number' && probabilityPercent >=0 ? Math.min(1, Math.max(0, probabilityPercent/100)) : null;
+    setCases(prev => prev.map(c => c.id === id ? (() => {
+      if(prob===null && !recommendation) return c; // nothing to apply
+      const reasons = [`Chat AI aplicat (${prob!==null? probabilityPercent+'%':'fără procent'})`];
+      let updated = { ...c, lastUpdate: Date.now(), history:[...c.history,{ at: Date.now(), text:`Chat AI applied (${probabilityPercent!=null?probabilityPercent+'% ':''}${recommendation||''})` }] };
+      if(prob!==null) updated.probability = prob;
+      if(recommendation) updated.recommendation = recommendation;
+  updated.aiAnalysisApplied = true;
+      // Optional: inject / refresh lines in existing letter (if any) so UI reflects new values immediately
+      if(updated.letter){
+        const pctLine = prob!==null ? `Probabilitate câștig estimată: ${probabilityPercent}%` : null;
+        const recLine = recommendation ? `Recomandare AI: ${recommendation}` : null;
+        const lines = updated.letter.split(/\n/);
+        let foundRec = false, foundProb = false;
+        for(let i=0;i<lines.length;i++){
+          if(recLine && /^Recomandare AI:/i.test(lines[i])){ lines[i]=recLine; foundRec=true; }
+          if(pctLine && /^Probabilitate câștig estimată:/i.test(lines[i])){ lines[i]=pctLine; foundProb=true; }
+        }
+        // Insert near top (after first non-empty line) if not present
+        const insertPos = Math.min(5, lines.findIndex(l=>l.trim()==='')>-1? lines.findIndex(l=>l.trim()===''):lines.length); // early section
+        const toInsert = [];
+        if(recLine && !foundRec) toInsert.push(recLine);
+        if(pctLine && !foundProb) toInsert.push(pctLine);
+        if(toInsert.length){
+          lines.splice(insertPos, 0, ...toInsert);
+        }
+        updated.letter = lines.join('\n');
+      }
+      if(updated.analysis){
+        updated.analysis = { ...updated.analysis, reasons: Array.from(new Set([...(updated.analysis.reasons||[]), ...reasons])), rulesSummary: updated.analysis.rulesSummary || reasons.join(' + ') };
+      } else { updated.analysis = { reasons, rulesSummary: reasons.join(' + ') }; }
+      updated = addActivity(updated, 'Chat AI recommendation applied', 'ai');
+      updated = logEvent(updated, { action: EVENT_ACTIONS.AI_RECOMMENDATION, actor, details:{ probability: updated.probability, recommendation: updated.recommendation, source:'chat' }, category:'ai' });
+      return updated;
+    })(): c));
+  }, [logEvent]);
+
+  const visibleCases = useMemo(()=>{
+    if(!currentUser?.email) return cases; // before auth guard kicks in
+    return cases.filter(c => c.owner === currentUser.email || c.owner === 'system');
+  }, [cases, currentUser]);
+
+  const addCase = useCallback((base) => {
+    setCases(prev => [ensureCaseShape({
+      id: base.id || ('CB-DISP-'+Math.floor(1000+Math.random()*9000)),
+      status: base.status || 'Open',
+      reason: base.reason || 'Dispută',
+      amount: base.amount || 0,
+      currency: base.currency || 'RON',
+      probability: base.probability ?? 0.5,
+      recommendation: base.recommendation || 'Refund',
+      owner: base.owner || currentUser?.email || '—',
+      lastUpdate: Date.now(),
+      deadline: Date.now() + 72*3600*1000,
+      letter: '',
+      history: [{ at: Date.now(), text: base.historyNote || 'Case created (dispute)' }]
+    }), ...prev]);
+  }, [currentUser]);
+
+  const contextValue = useMemo(() => ({ cases: visibleCases, updateCase, changeStatus, generateLetter, updateChecklistItem, addAttachment, removeAttachment, addNote, regenerateAnalysis, applyChatRecommendation, addCase, EVENT_ACTIONS, loadedRemote }), [visibleCases, updateCase, changeStatus, generateLetter, updateChecklistItem, addAttachment, removeAttachment, addNote, regenerateAnalysis, applyChatRecommendation, addCase, loadedRemote]);
 
   return <CasesContext.Provider value={contextValue}>{children}</CasesContext.Provider>;
 }
