@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Input, Upload, Tag, Tooltip, message as antdMessage, theme } from 'antd';
-import { SendOutlined, PaperClipOutlined, RobotOutlined, UserOutlined, FileOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { SendOutlined, PaperClipOutlined, RobotOutlined, UserOutlined, FileOutlined } from '@ant-design/icons';
 import CustomRightDrawer from '../../components/CustomRightDrawer.jsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCases } from '../cases/CasesContext.jsx';
@@ -20,7 +20,7 @@ export default function AIChat(){
     const [value, setValue] = useState('');
     const [pending, setPending] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [open, setOpen] = useState(false);
+    // removed user guide drawer state
     const listRef = useRef(null);
     const autoSentRef = useRef(false);
 
@@ -30,13 +30,13 @@ export default function AIChat(){
         try{
             const resp = await fetch('http://localhost:8000/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ messages: history.map(m=>({ role:m.role, content:m.content })) }) });
             if(!resp.ok){
-                let detail = 'Eroare server';
+                let detail = 'Server error';
                 try { const ct=resp.headers.get('content-type')||''; if(ct.includes('json')){ const j=await resp.json(); detail=j.detail||j.error||JSON.stringify(j).slice(0,180);} else { const t=await resp.text(); if(t) detail=t.slice(0,180);} } catch(_){ }
-                antdMessage.error(detail); return { text:'(eroare)', error:true };
+                antdMessage.error(detail); return { text:'(error)', error:true };
             }
             const data = await resp.json();
-            return { text: data.answer || '(fără răspuns)', error:false };
-        }catch(e){ antdMessage.error(e.message); return { text:'(eroare rețea)', error:true }; }
+            return { text: data.answer || '(no answer)', error:false };
+        }catch(e){ antdMessage.error(e.message); return { text:'(network error)', error:true }; }
     };
 
     const encodeAttachment = async(att) => {
@@ -72,7 +72,7 @@ export default function AIChat(){
             }
             if(!item) return;
             autoSentRef.current = true;
-            const template = `Dispută tranzacție flagată:\nID: ${item.id}\nSumă: ${item.amount} ${item.currency}\nDescriere: ${item.label||item.id}\nStatus curent: ${item.status}\nContext: am nevoie de pașii recomandați și ce dovezi/documente să pregătesc pentru a reduce riscul de chargeback. Indică clar ce lipsește.`;
+            const template = `Flagged payment dispute:\nID: ${item.id}\nAmount: ${item.amount} ${item.currency}\nDescription: ${item.label||item.id}\nCurrent status: ${item.status}\nContext: I need steps and what evidence/documents to prepare to reduce chargeback risk. State clearly what is missing.`;
             await send(template);
         };
         run();
@@ -132,28 +132,22 @@ export default function AIChat(){
 
     return (
         <div style={{height:'calc(100vh - 72px)',display:'flex',flexDirection:'column',background:token.colorBgLayout,position:'relative'}}>
-                <div style={{padding:'10px 18px',borderBottom:`1px solid ${token.colorSplit}`,display:'flex',alignItems:'center',justifyContent:'space-between',background:token.colorBgContainer,boxShadow:token.boxShadowTertiary,zIndex:2}}>
-                    <div style={{display:'flex',flexDirection:'column',lineHeight:1.1}}>
-                        <span style={{fontSize:18,fontWeight:700,letterSpacing:.5}}>Smart Assistant</span>
-                        <span style={{fontSize:11,opacity:.6,letterSpacing:.5}}>Suport AI pentru cazuri</span>
-                    </div>
-                    <Button type='primary' danger onClick={()=>setOpen(true)} style={{fontWeight:600,letterSpacing:.5}}>USER GUIDE</Button>
-                </div>
+                
                         <div ref={listRef} style={{flex:1,overflowY:'auto',overflowX:'hidden',background:token.colorBgLayout,minHeight:0}}>
                                 {messages.map(bubble)}
                                 {messages.length===0 && (
                                     <div style={{maxWidth:920,margin:'32px auto 40px',padding:'0 20px',display:'flex',flexDirection:'column',gap:28}}>
                                         <div style={{textAlign:'center'}}>
-                                            <div style={{fontSize:26,fontWeight:700,letterSpacing:.5,background:'linear-gradient(90deg,#1677ff,#5c2be3)',WebkitBackgroundClip:'text',color:'transparent'}}>Asistent AI Dispute</div>
-                                            <div style={{marginTop:6,fontSize:13,opacity:.65}}>Alege o întrebare de pornire sau scrie direct mesajul tău.</div>
+                                            <div style={{fontSize:26,fontWeight:700,letterSpacing:.5,background:'linear-gradient(90deg,#1677ff,#5c2be3)',WebkitBackgroundClip:'text',color:'transparent'}}>AI Assistant</div>
+                                            <div style={{marginTop:6,fontSize:13,opacity:.65}}>Pick a starter question or type your message.</div>
                                         </div>
                                         <div style={{display:'grid',gap:14,gridTemplateColumns:'repeat(2,minmax(0,1fr))',maxWidth:900,margin:'0 auto'}}>
-                                                                    {[
-                                                                        'Tutorial — îți arăt pas cu pas cum deschizi și rezolvi un caz',
-                                                                        'Abonament anulat dar taxat — afli ce documente și pași sunt necesari',
-                                                                        'Checklist inițial — vezi ce informații și dovezi trebuie să pregătești',
-                                                                        'Formular de caz — îți generez un template pe care să-l completezi'
-                                                                    ].map(q => (
+                                            {[
+                                                'Tutorial — show me step by step how to open and resolve a case',
+                                                'Cancelled subscription but charged — what documents and steps are required',
+                                                'Initial checklist — what info and evidence should I prepare',
+                                                'Case form — generate a template I can fill in'
+                                            ].map(q => (
                                                 <div key={q} style={{
                                                     border:`1px solid ${token.colorBorderSecondary}`,
                                                     background:token.colorBgContainer,
@@ -176,7 +170,7 @@ export default function AIChat(){
                                                 onMouseLeave={e=>{e.currentTarget.style.borderColor=token.colorBorderSecondary; e.currentTarget.style.boxShadow=token.boxShadowTertiary;}}
                                                 >
                                                     <div style={{fontSize:13,fontWeight:600,lineHeight:1.38}}>{q}</div>
-                                                    <div style={{marginTop:'auto',fontSize:11,opacity:.7}}>Click pentru a trimite</div>
+                                                    <div style={{marginTop:'auto',fontSize:11,opacity:.7}}>Click to send</div>
                                                     <div style={{position:'absolute',right:12,bottom:12,display:'flex',alignItems:'center',gap:4,fontSize:11,opacity:.55}}>
                                                         <SendOutlined />
                                                     </div>
@@ -198,21 +192,21 @@ export default function AIChat(){
                 )}
                 <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                     <Upload beforeUpload={beforeUpload} multiple showUploadList={false} accept='image/*,application/pdf,text/plain'>
-                        <Tooltip title='Atașează fișiere'><Button icon={<PaperClipOutlined/>} /></Tooltip>
+                    <Tooltip title='Attach files'><Button icon={<PaperClipOutlined/>} /></Tooltip>
                     </Upload>
-                    <Input.TextArea value={value} onChange={e=>setValue(e.target.value)} onKeyDown={onKeyDown} autoSize={{minRows:2,maxRows:5}} placeholder='Scrie mesajul... Enter trimite' disabled={loading} style={{flex:1}} />
-                    <Button type='primary' icon={<SendOutlined/>} onClick={()=>send()} disabled={(value.trim()===''&&pending.length===0)||loading}>Trimite</Button>
+                    <Input.TextArea value={value} onChange={e=>setValue(e.target.value)} onKeyDown={onKeyDown} autoSize={{minRows:2,maxRows:5}} placeholder='Type your message... Enter to send' disabled={loading} style={{flex:1}} />
+                    <Button type='primary' icon={<SendOutlined/>} onClick={()=>send()} disabled={(value.trim()===''&&pending.length===0)||loading}>Send</Button>
                     {item && item.status==='FLAGGED' && (
                         <Tooltip title='Aplică decizia risc pe payment (parsează ultimul JSON AI)'>
                             <Button onClick={()=>{
                                 const last=[...messages].reverse().find(m=>m.role==='assistant');
-                                if(!last){ antdMessage.warning('Niciun răspuns AI'); return; }
+                                if(!last){ antdMessage.warning('No AI reply yet'); return; }
                                 const jsonMatch=last.content.match(/\{[\s\S]*\}/); // crude capture
-                                if(!jsonMatch){ antdMessage.warning('JSON nerecunoscut'); return; }
-                                let parsed; try{ parsed=JSON.parse(jsonMatch[0]); }catch(e){ antdMessage.error('JSON invalid'); return; }
+                                if(!jsonMatch){ antdMessage.warning('JSON not recognized'); return; }
+                                let parsed; try{ parsed=JSON.parse(jsonMatch[0]); }catch(e){ antdMessage.error('Invalid JSON'); return; }
                                 if(parsed.fraud_risk_percent===undefined && parsed.fraud_risk!==undefined) parsed.fraud_risk_percent=parsed.fraud_risk;
                                 const pct = Number(parsed.fraud_risk_percent);
-                                if(isNaN(pct) || pct<0 || pct>100){ antdMessage.error('fraud_risk_percent lipsă sau invalid'); return; }
+                                if(isNaN(pct) || pct<0 || pct>100){ antdMessage.error('fraud_risk_percent missing or invalid'); return; }
                                 const decision = pct < 50 ? 'SUCCESSFUL' : 'FAILED';
                                 fetch(`http://localhost:8000/payments/${item.id}/risk_decision`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ decision }) })
                                   .then(async r=>{ if(!r.ok){ const t=await r.text(); throw new Error(t||('http '+r.status)); } return r.json(); })
@@ -224,30 +218,30 @@ export default function AIChat(){
                                           meta[item.id] = { ...(meta[item.id]||{}), status: decision, flag_category: data.flag_category, flag_reason: data.flag_reason };
                                           localStorage.setItem(key, JSON.stringify(meta));
                                       } catch(_){}
-                                      antdMessage.success(`Aplicat: risc ${pct}% => ${decision}`);
+                                      antdMessage.success(`Applied: risk ${pct}% => ${decision}`);
                                       setTimeout(()=>{ window.location.href='/payments'; }, 650);
                                   })
-                                  .catch(e=> antdMessage.error('Eroare aplicare: '+e.message));
-                            }}>Aplică risc</Button>
+                                  .catch(e=> antdMessage.error('Apply error: '+e.message));
+                            }}>Apply risk</Button>
                         </Tooltip>
                     )}
                     {item && (
                         <Tooltip title='Extrage JSON (probability, recommendation) din ultimul răspuns AI și aplică pe caz'>
                             <Button onClick={()=>{
-                                const last=[...messages].reverse().find(m=>m.role==='assistant'); if(!last){ antdMessage.warning('Niciun răspuns AI încă'); return; }
-                                const jsonMatch=last.content.match(/\{\s*"probability"[\s\S]*?\}/); if(!jsonMatch){ antdMessage.warning('JSON cu probability nu găsit'); return; }
-                                try { const parsed=JSON.parse(jsonMatch[0]); if(!('recommendation' in parsed)) throw new Error('lipsește recommendation'); const pct=parsed.probability===null?null:Number(parsed.probability); if(pct!==null && (isNaN(pct)||pct<0||pct>100)) throw new Error('procent invalid'); let rec=String(parsed.recommendation||'').trim(); if(!/^(Fight|Refund)$/i.test(rec)) throw new Error('recommendation trebuie Fight sau Refund'); rec=rec.charAt(0).toUpperCase()+rec.slice(1).toLowerCase(); applyChatRecommendation(item.id, pct, rec); antdMessage.success('Aplicat. Redirecționare...'); setTimeout(()=>navigate(`/cases/${item.id}`),400); } catch(e){ antdMessage.error('Eroare parse: '+e.message); }
-                            }}>Aplică pe caz</Button>
+                                const last=[...messages].reverse().find(m=>m.role==='assistant'); if(!last){ antdMessage.warning('No AI reply yet'); return; }
+                                const jsonMatch=last.content.match(/\{\s*"probability"[\s\S]*?\}/); if(!jsonMatch){ antdMessage.warning('JSON with probability not found'); return; }
+                                try { const parsed=JSON.parse(jsonMatch[0]); if(!('recommendation' in parsed)) throw new Error('missing recommendation'); const pct=parsed.probability===null?null:Number(parsed.probability); if(pct!==null && (isNaN(pct)||pct<0||pct>100)) throw new Error('invalid percent'); let rec=String(parsed.recommendation||'').trim(); if(!/^(Fight|Refund)$/i.test(rec)) throw new Error('recommendation must be Fight or Refund'); rec=rec.charAt(0).toUpperCase()+rec.slice(1).toLowerCase(); applyChatRecommendation(item.id, pct, rec); antdMessage.success('Applied. Redirecting...'); setTimeout(()=>navigate(`/cases/${item.id}`),400); } catch(e){ antdMessage.error('Parse error: '+e.message); }
+                            }}>Apply on case</Button>
                         </Tooltip>)
                     }
-                    <Tooltip title='User Guide'><Button type='primary' shape='circle' icon={<QuestionCircleOutlined style={{fontSize:22}}/>} onClick={()=>setOpen(true)} /></Tooltip>
+                    {/* User Guide icon button removed */}
                 </div>
                 <div style={{fontSize:11,color:token.colorTextTertiary,display:'flex',justifyContent:'space-between'}}>
                     <span>{pending.length}/5 attach</span>
-                    <span>{loading?'Se generează răspuns...':'Enter = trimite, Shift+Enter = linie nouă'}</span>
+                    <span>{loading?'Generating answer...':'Enter = send, Shift+Enter = new line'}</span>
                 </div>
             </div>
-            <CustomRightDrawer open={open} setOpen={setOpen} setValue={setValue} />
+            {/* CustomRightDrawer removed with User Guide */}
         </div>
     );
 }

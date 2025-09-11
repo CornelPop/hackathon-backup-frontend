@@ -42,38 +42,36 @@ export default function CustomRightDrawer({ open, setOpen, setValue }) {
             <Alert
                 type="info"
                 showIcon
-                message={<b>Nu introduce date sensibile</b>}
-                description="Maschează email / telefon / adresă (ex: i***@exemplu.ro)"
+                message={<b>Don't input sensitive data</b>}
+                description="Mask email / phone / address (eg: j***@example.com)"
                 style={{ marginBottom: 24 }}
             />
 
             {/* Section 1 */}
             <section id="g1">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    1) Scopul ghidului
+                    1) Guide purpose
                 </Typography.Title>
                 <Typography.Paragraph>
-                    Cum folosești chatbotul pentru dispute: informații, dovezi, recomandare Fight vs Refund și draft.
+                    How to use the dispute assistant: info, evidence, Fight vs Refund recommendation and draft.
                 </Typography.Paragraph>
             </section>
 
             {/* Section 2 */}
             <section id="g2">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    2) Ce face asistentul
+                    2) What the assistant does
                 </Typography.Title>
                 <ul style={{ paddingLeft: 18, lineHeight: 1.55 }}>
-                    <li>Colectează date tranzacție + motiv.</li>
-                    <li>Generează checklist + lipsuri.</li>
-                    <li>
-                        Recomandă <Tag color="green">Fight</Tag> / <Tag color="volcano">Refund</Tag>.
-                    </li>
-                    <li>Produce draft scrisoare.</li>
+                    <li>Collects transaction data + reason.</li>
+                    <li>Generates checklist + missing items.</li>
+                    <li>Recommends <Tag color="green">Fight</Tag> / <Tag color="volcano">Refund</Tag>.</li>
+                    <li>Produces dispute letter draft.</li>
                 </ul>
                 <Alert
                     type="warning"
                     showIcon
-                    message="Nu inventează date și nu decide în locul tău."
+                    message="Doesn't fabricate data and doesn't decide for you."
                     style={{ marginTop: 8 }}
                 />
             </section>
@@ -81,24 +79,24 @@ export default function CustomRightDrawer({ open, setOpen, setValue }) {
             {/* Section 3 */}
             <section id="g3">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    3) Înainte să începi
+                    3) Before you start
                 </Typography.Title>
                 <div style={{ display: "grid", gap: 4 }}>
-                    <div><b>Motiv</b>: nelivrat / fraudă / neconform / dublă / abonament anulat</div>
-                    <div><b>Tranzacție</b>: sumă, monedă, dată, ID</div>
-                    <div><b>Comandă/Serviciu</b>: orderId, plan, perioadă</div>
-                    <div><b>Dovezi</b>: factură, AWB, loguri, email, anulare</div>
-                    <div><b>Confidențialitate</b>: maschează PII</div>
+                    <div><b>Reason</b>: undelivered / fraud / not as described / double / canceled subscription</div>
+                    <div><b>Transaction</b>: amount, currency, date, ID</div>
+                    <div><b>Order/Service</b>: orderId, plan, period</div>
+                    <div><b>Evidence</b>: invoice, tracking, logs, email, cancellation</div>
+                    <div><b>Privacy</b>: mask PII</div>
                 </div>
             </section>
 
             {/* Section 4 */}
             <section id="g4">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    4) Primul mesaj
+                    4) First message
                 </Typography.Title>
                 <Typography.Paragraph style={{ marginBottom: 6 }}>
-                    Trimite motiv + date esențiale. Template:
+                    Send reason + essential data. Template:
                 </Typography.Paragraph>
                 <pre
                     style={{
@@ -111,43 +109,43 @@ export default function CustomRightDrawer({ open, setOpen, setValue }) {
                         overflowX: "auto",
                         border: `1px solid ${token.colorBorderSecondary}`,
                     }}
-                >{`Motiv: ____________________
-Tranzacție: sumă ______, monedă ___, dată ______, ID __________
-Client (mascat): ____________________
-Comandă/Serviciu: orderId ______, descriere ______
-Dovezi avute: Factură / AWB / Confirmare / Loguri / Email client / Contract
-Observații: ____________________`}</pre>
+                >{`Reason: ____________________
+Transaction: amount ______, currency ___, date ______, ID __________
+Customer (masked): ____________________
+Order/Service: orderId ______, description ______
+Evidence owned: Invoice / Tracking / Confirmation / Logs / Customer email / Contract
+Notes: ____________________`}</pre>
                 <Typography.Paragraph style={{ marginTop: 8 }}>
-                    Răspuns: sinteză, ce lipsește, checklist, recomandare, draft (la cerere).
+                    Response: summary, what's missing, checklist, recommendation, draft (if requested).
                 </Typography.Paragraph>
             </section>
 
             {/* Section 5 */}
             <section id="g5">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    5) Comenzi utile
+                    5) Useful prompts
                 </Typography.Title>
                 <Space direction="vertical" size={4} style={{ fontSize: 13 }}>
-                    <code>Fă checklist pentru motivul X.</code>
-                    <code>Spune-mi ce lipsește ca să pot trimite apărarea.</code>
-                    <code>Pe baza datelor, recomanzi Fight sau Refund? De ce?</code>
-                    <code>Generează un draft de scrisoare pentru cazul acesta.</code>
-                    <code>Rezumat caz în 5 puncte.</code>
+                    <code>Create a checklist for reason X.</code>
+                    <code>Tell me what's missing before I can submit.</code>
+                    <code>Based on the data, do you recommend Fight or Refund? Why?</code>
+                    <code>Generate a dispute letter draft for this case.</code>
+                    <code>Case summary in 5 bullet points.</code>
                 </Space>
             </section>
 
             {/* Section 6 */}
             <section id="g6">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    6) Dovezi
+                    6) Evidence
                 </Typography.Title>
                 <div style={{ display: "grid", gap: 12 }}>
                     {[
-                        { t: "Produs nelivrat", o: "AWB + confirmare / încercări + factură", r: "Conversație client, poze" },
-                        { t: "Fraudă", o: "3DS/AVS/CVV, IP/device, data/ora", r: "Istoric cont, pattern" },
-                        { t: "Serviciu neconform", o: "Termeni, perioadă, dovada acces", r: "Loguri, suport" },
-                        { t: "Dublă încasare", o: "Ambele tranzacții + confirmare dublu", r: "Jurnal sistem, refund/void" },
-                        { t: "Abonament anulat", o: "Dovadă anulare + debit contestat", r: "Loguri post-anulare, politică" },
+                        { t: "Undelivered product", o: "Tracking + delivery confirmation / attempts + invoice", r: "Customer conversation, photos" },
+                        { t: "Fraud", o: "3DS/AVS/CVV, IP/device, date/time", r: "Account history, pattern" },
+                        { t: "Not as described", o: "Terms, period, access proof", r: "Logs, support" },
+                        { t: "Double charge", o: "Both transactions + duplicate confirmation", r: "System log, refund/void" },
+                        { t: "Canceled subscription", o: "Cancellation proof + disputed debit", r: "Post-cancel logs, policy" },
                     ].map((row) => (
                         <div key={row.t} style={cardStyle}>
                             <div style={{ fontWeight: 600, marginBottom: 4 }}>{row.t}</div>
@@ -164,38 +162,38 @@ Observații: ____________________`}</pre>
                     type="warning"
                     showIcon
                     style={{ marginTop: 10 }}
-                    message="Lipsește o dovadă obligatorie? Nu trimite încă."
+                    message="Missing required evidence? Don't send yet."
                 />
             </section>
 
             {/* Section 7 */}
             <section id="g7">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    7) Format răspuns
+                    7) Response format
                 </Typography.Title>
                 <ol style={{ paddingLeft: 20, fontSize: 13, lineHeight: 1.55 }}>
-                    <li>Motiv identificat</li>
-                    <li>Date primite</li>
-                    <li>Date lipsă</li>
+                    <li>Identified reason</li>
+                    <li>Data received</li>
+                    <li>Missing data</li>
                     <li>Checklist (✓/✗)</li>
-                    <li>Analiză scurtă</li>
-                    <li>Recomandare Fight / Refund</li>
-                    <li>Draft (opțional)</li>
-                    <li>Pașii următori</li>
+                    <li>Short analysis</li>
+                    <li>Fight / Refund recommendation</li>
+                    <li>Draft (optional)</li>
+                    <li>Next steps</li>
                 </ol>
             </section>
 
             {/* Section 8 */}
             <section id="g8">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    8) Exemple
+                    8) Examples
                 </Typography.Title>
                 <div style={{ display: "grid", gap: 12 }}>
                     {[
-                        { h: "A. Nelivrat — AWB OK", u: "Motiv nelivrat; 230 RON, 01.09, TX-11; factură + AWB 123 semnat.", a: "Checklist ✓; Fight." },
-                        { h: "B. Nelivrat — fără AWB", u: "Motiv nelivrat; 230 RON; factură.", a: "Lipsește AWB → cere completări." },
-                        { h: "C. Abonament anulat", u: "Anulare 15.08, debit 01.09; confirmare email; loguri 0.", a: "Refund recomandat." },
-                        { h: "D. Fraudă 3DS", u: "Fraudă; 3DS da; device/IP identic.", a: "Fight; cere AVS/CVV dacă lipsesc." },
+                        { h: "A. Undelivered — tracking OK", u: "Reason undelivered; 230 RON, 01.09, TX-11; invoice + tracking 123 signed.", a: "Checklist ✓; Fight." },
+                        { h: "B. Undelivered — no tracking", u: "Reason undelivered; 230 RON; invoice only.", a: "Missing tracking → request completion." },
+                        { h: "C. Canceled subscription", u: "Cancel 15.08, charge 01.09; email confirmation; zero usage logs.", a: "Refund recommended." },
+                        { h: "D. Fraud 3DS", u: "Fraud; 3DS yes; device/IP consistent.", a: "Fight; request AVS/CVV if missing." },
                     ].map((ex) => (
                         <div key={ex.h} style={cardStyle}>
                             <b>{ex.h}</b>
@@ -213,52 +211,52 @@ Observații: ____________________`}</pre>
             {/* Section 9 */}
             <section id="g9">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    9) Draft scrisoare
+                    9) Letter draft
                 </Typography.Title>
                 <Typography.Paragraph style={{ marginBottom: 4 }}>
-                    Cere: <code>Generează un draft de scrisoare pentru cazul acesta</code>. Include tranzacție, motiv, dovezi, concluzie.
+                    Ask: <code>Generate a dispute letter draft for this case</code>. Include transaction, reason, evidence, conclusion.
                 </Typography.Paragraph>
-                <Alert type="info" showIcon message="Verifică PII înainte de folosire." />
+                <Alert type="info" showIcon message="Verify PII before use." />
             </section>
 
             {/* Section 10 */}
             <section id="g10">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    10) Bune practici
+                    10) Best practices
                 </Typography.Title>
                 <ul style={{ paddingLeft: 18, lineHeight: 1.55 }}>
-                    <li>Clar + complet pe dovezi.</li>
-                    <li>Nu trimite fără obligatorii.</li>
-                    <li>Maschează PII.</li>
-                    <li>Cere „Rezumat caz”.</li>
-                    <li>Întreabă „Ce lipsește?”.</li>
+                    <li>Clear + complete on evidence.</li>
+                    <li>Don't send without required items.</li>
+                    <li>Mask PII.</li>
+                    <li>Ask for "Case summary".</li>
+                    <li>Ask "What is missing?"</li>
                 </ul>
             </section>
 
             {/* Section 11 */}
             <section id="g11">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    11) Greșeli
+                    11) Mistakes
                 </Typography.Title>
                 <ul style={{ paddingLeft: 18, lineHeight: 1.55 }}>
-                    <li>Descrieri vagi.</li>
-                    <li>Lipsă AWB la nelivrat.</li>
-                    <li>Amesteci cazuri.</li>
-                    <li>Date card complete.</li>
-                    <li>Ceri recomandare fără minime.</li>
+                    <li>Vague descriptions.</li>
+                    <li>Missing tracking on undelivered.</li>
+                    <li>Mixing multiple cases.</li>
+                    <li>Full card data present.</li>
+                    <li>Asking recommendation without basics.</li>
                 </ul>
             </section>
 
             {/* Section 12 */}
             <section id="g12">
                 <Typography.Title level={4} style={{ marginBottom: 4 }}>
-                    12) Întrebări
+                    12) Questions
                 </Typography.Title>
                 <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
-                    <div><b>Decide?</b> Nu, doar recomandă.</div>
-                    <div><b>Fără dovezi?</b> Cere ce lipsește.</div>
-                    <div><b>Găsește AWB?</b> Nu.</div>
-                    <div><b>Nu știu motivul?</b> Dă context.</div>
+                    <div><b>Does it decide?</b> No, only recommends.</div>
+                    <div><b>No evidence?</b> It asks for what's missing.</div>
+                    <div><b>Finds tracking?</b> No.</div>
+                    <div><b>Don't know the reason?</b> Provide context.</div>
                 </div>
             </section>
 
@@ -278,12 +276,12 @@ Observații: ____________________`}</pre>
                         overflowX: "auto",
                         border: `1px solid ${token.colorBorderSecondary}`,
                     }}
-                >{`Motiv: ____________________
-Tranzacție: sumă ______, monedă ___, dată ______, ID __________
-Comandă/Serviciu: ____________________
-Dovezi: Factură / AWB / Confirmare / Loguri / Email client / Contract
-Observații: ____________________
-Te rog: checklist + ce lipsește + recomandare + draft scrisoare.`}</pre>
+                >{`Reason: ____________________
+Transaction: amount ______, currency ___, date ______, ID __________
+Order/Service: ____________________
+Evidence: Invoice / Tracking / Confirmation / Logs / Customer email / Contract
+Notes: ____________________
+Please: checklist + missing items + recommendation + letter draft.`}</pre>
             </section>
 
             <Divider style={{ borderColor: token.colorSplit }} />
@@ -296,7 +294,7 @@ Te rog: checklist + ce lipsește + recomandare + draft scrisoare.`}</pre>
                     color="geekblue"
                     style={{ marginInlineEnd: 0, cursor: "pointer" }}
                     onClick={() => {
-                        setValue("Checklist fraudă tranzacție 1234");
+                        setValue("Checklist fraud transaction 1234");
                         setOpen(false);
                     }}
                 >
@@ -306,7 +304,7 @@ Te rog: checklist + ce lipsește + recomandare + draft scrisoare.`}</pre>
                     color="geekblue"
                     style={{ marginInlineEnd: 0, cursor: "pointer" }}
                     onClick={() => {
-                        setValue("Recomandare fight vs refund nelivrat TX-11");
+                        setValue("Fight vs Refund recommendation undelivered TX-11");
                         setOpen(false);
                     }}
                 >

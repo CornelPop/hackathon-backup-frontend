@@ -16,7 +16,7 @@ import {
     SearchOutlined,
 } from "@ant-design/icons";
 import ThemeSwitcher from "./ThemeSwitcher.jsx";
-import img from "../assets/images/placeholder logo.jpg";
+import img from "../assets/images/image_1.png";
 
 const { Header } = Layout;
 const { Title, Text } = Typography;
@@ -138,18 +138,19 @@ export default function CustomHeader({ sticky = true, onCreated }) {
                         src={img}
                         alt="Logo"
                         preview={false}
-                        height={50}
+                        height={90}
+                        width={90}
                         style={{ objectFit: "contain" }}
                     />
                 </div>
 
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleOpen}>New Invoice</Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleOpen}>New Payment</Button>
 
                 <ThemeSwitcher />
             </Header>
 
             <Modal
-                title="New Invoice"
+                title="New Payment"
                 open={modalOpen}
                 onOk={handleOk}
                 confirmLoading={confirmLoading}

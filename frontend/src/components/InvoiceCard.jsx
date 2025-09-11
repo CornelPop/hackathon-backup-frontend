@@ -84,8 +84,8 @@ export default function InvoiceCard({ item, onPay, onRetry, clientMeta }) {
                 >
                                         {item.status}
                                                                                 {item.status==='FLAGGED' && (
-                                                                                        <span style={{fontWeight:400, marginLeft:4}}>
-                                                                                              ({ (item.flag_category==='RISK' || (!item.flag_category && clientMeta?.risk_trigger)) ? 'RISC' : (item.flag_category==='DISPUTE' || (!item.flag_category && clientMeta?.reason)) ? 'DISPUTĂ' : 'FLAG' })
+                                                            <span style={{fontWeight:400, marginLeft:4}}>
+                                                                ({ (item.flag_category==='RISK' || (!item.flag_category && clientMeta?.risk_trigger)) ? 'RISK' : (item.flag_category==='DISPUTE' || (!item.flag_category && clientMeta?.reason)) ? 'DISPUTE' : 'FLAG' })
                                                                                         </span>
                                                                                 )}
                 </Tag>
@@ -143,14 +143,14 @@ export default function InvoiceCard({ item, onPay, onRetry, clientMeta }) {
                                             style={{ borderRadius: 10 }}
                                             onClick={() => {
                                                 const reasonMap = {
-                                                    NOT_RECOGNIZED: 'Tranzacție nerecunoscută',
-                                                    UNDELIVERED: 'Produs/serviciu nelivrat',
-                                                    SUB_CANCEL_CHARGED: 'Abonament anulat dar taxat',
-                                                    DOUBLE_CHARGE: 'Dublă încasare',
-                                                    STOLEN_CARD: 'Card furat',
-                                                    NOT_AS_DESCRIBED: 'Nu corespunde descrierii',
-                                                    FAMILY_FRAUD: 'Fraudă prietenoasă / familie',
-                                                    TRIAL_AUTORENEW: 'Trial auto-renewal contestat'
+                                                    NOT_RECOGNIZED: 'Unrecognized transaction',
+                                                    UNDELIVERED: 'Product/service not delivered',
+                                                    SUB_CANCEL_CHARGED: 'Subscription canceled but charged',
+                                                    DOUBLE_CHARGE: 'Double charge',
+                                                    STOLEN_CARD: 'Stolen card claim',
+                                                    NOT_AS_DESCRIBED: 'Not as described',
+                                                    FAMILY_FRAUD: 'Friendly/family fraud',
+                                                    TRIAL_AUTORENEW: 'Trial auto-renew disputed'
                                                 };
                                                 const isRisk = (item.flag_category==='RISK') || (!item.flag_category && clientMeta?.risk_trigger);
                                                                         if(isRisk){
@@ -176,7 +176,7 @@ export default function InvoiceCard({ item, onPay, onRetry, clientMeta }) {
                                                                                 } : null,
                                                                                 risk_context: {
                                                                                     trigger_code: trigger,
-                                                                                    description_hint: 'Semnal risc generat din profil/random simulation'
+                                                                                    description_hint: 'Risk signal generated from profile/random simulation'
                                                                                 },
                                                                                 required_output: {
                                                                                     fraud_risk_percent: '0-100 integer',
@@ -186,7 +186,7 @@ export default function InvoiceCard({ item, onPay, onRetry, clientMeta }) {
                                                                                     next_evidence: ['list of 2-5 signals to collect']
                                                                                 }
                                                                             };
-                                                                            const prefill = `Evaluează tranzacția risc și răspunde STRICT doar cu JSON valid conform structurii (fără markdown, fără text înainte/după).\n${JSON.stringify(riskObj, null, 2)}`;
+                                                                            const prefill = `Evaluate payment risk and respond STRICTLY with valid JSON matching structure (no markdown, no extra text).\n${JSON.stringify(riskObj, null, 2)}`;
                                                     navigate('/ai', { state: { item, prefill } });
                                                     return;
                                                 }
@@ -194,10 +194,10 @@ export default function InvoiceCard({ item, onPay, onRetry, clientMeta }) {
                                                 const r = item.flag_category==='DISPUTE' ? (clientMeta?.reason) : (clientMeta?.risk_trigger || clientMeta?.reason);
                                                 const readable = (()=>{
                                                     if(clientMeta?.reason && reasonMap[clientMeta.reason]) return reasonMap[clientMeta.reason];
-                                                    return r || 'Motiv nespecificat';
+                                                    return r || 'Reason unspecified';
                                                 })();
-                                                const clientDetails = clientMeta ? `\nProfil client: ${clientMeta.email_masked||clientMeta.id} (${clientMeta.country||'N/A'})\nTotal plăți: ${clientMeta.total_payments} | Disputate: ${clientMeta.disputed_payments} | Win rate: ${clientMeta.chargeback_win_rate}% | LTV: ${clientMeta.lifetime_value}` : 'Profil client indisponibil';
-                                                const prefill = `Dispută inițiată pentru tranzacție FLAGGED (DISPUTĂ).\nID: ${item.id}\nSumă: ${item.amount} ${item.currency}\nDescriere: ${item.label}\nMotiv dispută: ${readable}\nCod intern: ${item.flag_reason||clientMeta?.reason||'N/A'}${clientDetails}\nTe rog oferă pași și EV (Fight vs Refund).`;
+                                                const clientDetails = clientMeta ? `\nClient profile: ${clientMeta.email_masked||clientMeta.id} (${clientMeta.country||'N/A'})\nTotal payments: ${clientMeta.total_payments} | Disputed: ${clientMeta.disputed_payments} | Win rate: ${clientMeta.chargeback_win_rate}% | LTV: ${clientMeta.lifetime_value}` : 'Client profile unavailable';
+                                                const prefill = `Dispute initiated for FLAGGED payment (DISPUTE).\nID: ${item.id}\nAmount: ${item.amount} ${item.currency}\nDescription: ${item.label}\nDispute reason: ${readable}\nInternal code: ${item.flag_reason||clientMeta?.reason||'N/A'}${clientDetails}\nPlease provide steps and EV (Fight vs Refund).`;
                                                 navigate('/ai', { state: { item, prefill } });
                                             }}
                                         >

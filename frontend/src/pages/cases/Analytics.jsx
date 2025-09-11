@@ -15,7 +15,8 @@ const { Text } = Typography;
 // Removed segmented period selector; using a default window for analytics
 const DEFAULT_DAYS = 90;
 
-const REASONS = ['Fraudă','Nelivrat','Neconform','Dublă','Abonament'];
+// Display reasons translated to English (original Romanian removed)
+const REASONS = ['Fraud','Not Delivered','Not as Described','Duplicate','Subscription'];
 
 function midnightDaysAgo(n){
   const d = new Date();
@@ -59,7 +60,7 @@ export default function AnalyticsPage(){
   return (
     <div style={{ padding: 16 }}>
   {/* Removed Ant Typography Title to avoid unwanted dev-only class */}
-  <Card style={{ marginBottom: 16 }} extra={<Tooltip title="Reîmprospătează"><ReloadOutlined onClick={load} style={{ cursor:'pointer' }} /></Tooltip>}>
+  <Card style={{ marginBottom: 16 }} extra={<Tooltip title="Refresh"><ReloadOutlined onClick={load} style={{ cursor:'pointer' }} /></Tooltip>}>
         <div style={{fontSize:18,fontWeight:600,marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
           <span style={{letterSpacing:.5}}>Analysis</span>
           <span style={{fontSize:11,opacity:.55,fontWeight:400}}>Filtre & KPIs cazuri</span>
@@ -67,7 +68,7 @@ export default function AnalyticsPage(){
         <Space wrap>
           <Select
             allowClear
-            placeholder="Motiv"
+            placeholder="Reason"
             style={{ width:180 }}
             value={reasonFilter}
             onChange={setReasonFilter}
@@ -92,43 +93,43 @@ export default function AnalyticsPage(){
         </Space>
       </Card>
   {loading && <div style={{padding:40, textAlign:'center'}}><Spin /></div>}
-  {error && <Alert type='error' message='Eroare încărcare analytics' description={error} style={{marginBottom:16}} />}
+  {error && <Alert type='error' message='Analytics load error' description={error} style={{marginBottom:16}} />}
   {!loading && data && <>
   <Row gutter={[16,16]}>
         <Col xs={24} md={6}>
-          <Card size="small" title={<Space>Win rate <Tooltip title="Cazuri câștigate din totalul trimis."><InfoCircleOutlined /></Tooltip></Space>}>
+          <Card size="small" title={<Space>Win rate <Tooltip title="Cases won out of total submitted."><InfoCircleOutlined /></Tooltip></Space>}>
     <Statistic value={data.win_rate} precision={1} suffix="%" />
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card size="small" title={<Space>Bani salvați <Tooltip title="Diferența netă vs refund direct (incl. fee-uri)."><InfoCircleOutlined /></Tooltip></Space>}>
+          <Card size="small" title={<Space>Money saved <Tooltip title="Net difference vs direct refund (incl. fees)."><InfoCircleOutlined /></Tooltip></Space>}>
     <Statistic value={data.money_saved} precision={0} suffix=" RON" valueStyle={{ color: data.money_saved>=0?'#3f8600':'#cf1322' }} />
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card size="small" title={<Space>Top motiv <Tooltip title="Primele cauze după frecvență (cu win rate)."><InfoCircleOutlined /></Tooltip></Space>}>
+          <Card size="small" title={<Space>Top reason <Tooltip title="Top reasons by frequency (with win rate)."><InfoCircleOutlined /></Tooltip></Space>}>
     <Text>{data.top_reason || '—'}</Text>
           </Card>
         </Col>
         <Col xs={24} md={6}>
-          <Card size="small" title={<Space>Timp mediu trimitere <Tooltip title="Media între creare și trimitere."><InfoCircleOutlined /></Tooltip></Space>}>
+          <Card size="small" title={<Space>Avg submit time <Tooltip title="Average time from creation to submission."><InfoCircleOutlined /></Tooltip></Space>}>
     <Statistic value={data.avg_submit_hours} precision={1} suffix="h" />
           </Card>
         </Col>
       </Row>
       <Row gutter={[16,16]} style={{ marginTop:8 }}>
         <Col xs={24} md={8}>
-          <Card size="small" title={<Space>SLA respectat <Tooltip title="% cazuri trimise înainte de deadline."><InfoCircleOutlined /></Tooltip></Space>}>
+          <Card size="small" title={<Space>SLA met <Tooltip title="% cases submitted before deadline."><InfoCircleOutlined /></Tooltip></Space>}>
     <Statistic value={data.sla_respect} precision={1} suffix="%" />
           </Card>
         </Col>
         <Col xs={24} md={8}>
-          <Card size="small" title={<Space>Override rate <Tooltip title="% decizii unde omul a ignorat recomandarea AI/reguli."><InfoCircleOutlined /></Tooltip></Space>}>
+          <Card size="small" title={<Space>Override rate <Tooltip title="% decisions where human ignored AI/rules recommendation."><InfoCircleOutlined /></Tooltip></Space>}>
     <Statistic value={data.override_rate} precision={1} suffix="%" />
           </Card>
         </Col>
         <Col xs={24} md={8}>
-          <Card size="small" title={<Space>Checklist complet <Tooltip title="% cazuri cu dovezile required bifate la submit."><InfoCircleOutlined /></Tooltip></Space>}>
+          <Card size="small" title={<Space>Checklist complete <Tooltip title="% cases with required evidence checked at submit."><InfoCircleOutlined /></Tooltip></Space>}>
     <Statistic value={data.checklist_complete} precision={1} suffix="%" />
           </Card>
         </Col>
@@ -138,21 +139,21 @@ export default function AnalyticsPage(){
         <Col xs={24} md={16}>
           <Row gutter={[16,16]}>
             <Col span={24}>
-              <Card size="small" title="Motive">
+              <Card size="small" title="Reasons">
                 <Bar data={motiveChartData} xField="reason" yField="total" seriesField="reason" height={260} />
                 <Divider style={{ margin: '12px 0' }} />
                 <Space wrap>
-                  {motiveChartData.map(d => <Tag key={d.reason}>{d.reason}: {d.won}/{d.total} câștigate ({(d.total?d.won/d.total*100:0).toFixed(0)}%)</Tag>)}
+                  {motiveChartData.map(d => <Tag key={d.reason}>{d.reason}: {d.won}/{d.total} won ({(d.total?d.won/d.total*100:0).toFixed(0)}%)</Tag>)}
                 </Space>
               </Card>
             </Col>
             <Col span={24}>
-              <Card size="small" title="Evoluție win rate (zi)">
+              <Card size="small" title="Win rate evolution (day)">
                 <Line data={winRateEvolution} xField="date" yField="winRate" height={240} point />
               </Card>
             </Col>
             <Col span={24}>
-              <Card size="small" title="Performanță operator">
+              <Card size="small" title="Operator performance">
                 <Bar data={operatorData} xField="operator" yField="winRate" seriesField="operator" height={260} />
                 <Divider style={{ margin: '8px 0' }} />
                 <Space direction="vertical" size={4}>
@@ -163,21 +164,21 @@ export default function AnalyticsPage(){
           </Row>
         </Col>
         <Col xs={24} md={8}>
-          <Card size="small" title={<Space>What-if <Tooltip title="Mută pragul Fight și vezi impactul estimat. Valorile sunt aproximări."><InfoCircleOutlined /></Tooltip></Space>}>
+          <Card size="small" title={<Space>What-if <Tooltip title="Adjust Fight threshold to see estimated impact. Approximate values."><InfoCircleOutlined /></Tooltip></Space>}>
             <Space direction="vertical" style={{ width:'100%' }}>
-              <Text>Prag Fight: {threshold}%</Text>
+              <Text>Fight threshold: {threshold}%</Text>
               <Slider min={0} max={100} value={threshold} onChange={setThreshold} />
               <Space>
                 <Switch checked={includeFees} onChange={setIncludeFees} />
-                <Text>Include fee-uri și cost operare</Text>
+                <Text>Include fees & operating cost</Text>
               </Space>
               <Divider style={{ margin: '8px 0' }} />
-              <Statistic title="Cazuri Fight" value={whatIf.fightCases} />
-              <Statistic title="Win rate estimat" value={whatIf.winRateEst} precision={1} suffix="%" />
-              <Statistic title="Impact total estimat (EV nou)" value={whatIf.totalEV} precision={0} suffix=" RON" valueStyle={{ color: whatIf.totalEV>=0?'#3f8600':'#cf1322' }} />
-              <Statistic title="Delta vs politic curent" value={whatIf.delta} precision={0} suffix=" RON" valueStyle={{ color: whatIf.delta>=0?'#3f8600':'#cf1322' }} />
+              <Statistic title="Fight cases" value={whatIf.fightCases} />
+              <Statistic title="Estimated win rate" value={whatIf.winRateEst} precision={1} suffix="%" />
+              <Statistic title="Estimated total impact (new EV)" value={whatIf.totalEV} precision={0} suffix=" RON" valueStyle={{ color: whatIf.totalEV>=0?'#3f8600':'#cf1322' }} />
+              <Statistic title="Delta vs current policy" value={whatIf.delta} precision={0} suffix=" RON" valueStyle={{ color: whatIf.delta>=0?'#3f8600':'#cf1322' }} />
               <Divider style={{ margin: '8px 0' }} />
-              <Text type="secondary" style={{ fontSize:12 }}>Formula EV fight: (2p - 1) * amount - fee_rep - cost_operare</Text>
+              <Text type="secondary" style={{ fontSize:12 }}>EV formula: (2p - 1) * amount - fee_rep - operating_cost</Text>
             </Space>
           </Card>
         </Col>

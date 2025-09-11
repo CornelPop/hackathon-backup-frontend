@@ -30,40 +30,40 @@ export const EVENT_ACTIONS = {
 // status flow per item: missing -> uploaded -> ok (or) na (not applicable)
 // Each template item may contain simple keyword hints (mock) for future extraction.
 export const CHECKLIST_TEMPLATES = {
-  Fraudă: [
-    { id: 'fraud-3ds', label: 'Dovadă 3-D Secure (ECI/CAVV)', required: true, keywords:['3DS','ECI','CAVV'] },
-    { id: 'fraud-avs-cvv', label: 'Rezultat AVS/CVV', required: true, keywords:['AVS','CVV'] },
-    { id: 'fraud-ip-device', label: 'IP / Device + țară', required: true, keywords:['IP','Device'] },
-    { id: 'fraud-history', label: 'Istoric client / comportament', required: false },
-    { id: 'fraud-logs', label: 'Loguri autentificare', required: false },
+  'Fraud': [
+    { id: 'fraud-3ds', label: '3-D Secure proof (ECI/CAVV)', required: true, keywords:['3DS','ECI','CAVV'] },
+    { id: 'fraud-avs-cvv', label: 'AVS/CVV result', required: true, keywords:['AVS','CVV'] },
+    { id: 'fraud-ip-device', label: 'IP / Device + country', required: true, keywords:['IP','Device'] },
+    { id: 'fraud-history', label: 'Customer history / behavior', required: false },
+    { id: 'fraud-logs', label: 'Authentication logs', required: false },
   ],
-  Nelivrat: [
-    { id: 'nl-awb', label: 'AWB / tracking expediere', required: true, keywords:['AWB','tracking'] },
-    { id: 'nl-courier-confirm', label: 'Confirmare curier (livrat / în tranzit)', required: true, keywords:['livrat','in tranzit'] },
-    { id: 'nl-address', label: 'Adresă expediere comandă', required: true, keywords:['adresă','address'] },
-    { id: 'nl-client-chat', label: 'Conversație client', required: false },
+  'Undelivered': [
+    { id: 'nl-awb', label: 'Shipment tracking (AWB)', required: true, keywords:['AWB','tracking'] },
+    { id: 'nl-courier-confirm', label: 'Courier confirmation (delivered / in transit)', required: true, keywords:['delivered','in transit'] },
+    { id: 'nl-address', label: 'Order shipping address', required: true, keywords:['address'] },
+    { id: 'nl-client-chat', label: 'Customer conversation', required: false },
   ],
-  Neconform: [
-    { id: 'nc-photos', label: 'Poze/clip produs (client)', required: true, keywords:['img','jpg','png'] },
-    { id: 'nc-description', label: 'Descriere produs / fișă tehnică', required: true },
-    { id: 'nc-policy', label: 'Politică retur / garanție', required: true },
-    { id: 'nc-rma', label: 'RMA / confirmare retur', required: false },
+  'Not as described': [
+    { id: 'nc-photos', label: 'Product photos/video (customer)', required: true, keywords:['img','jpg','png'] },
+    { id: 'nc-description', label: 'Product description / spec sheet', required: true },
+    { id: 'nc-policy', label: 'Return / warranty policy', required: true },
+    { id: 'nc-rma', label: 'RMA / return confirmation', required: false },
   ],
-  Dublă: [
-    { id: 'dbl-both', label: 'Ambele plăți (ID + dată + sumă)', required: true },
-    { id: 'dbl-log', label: 'Log / raport procesator (dublare)', required: true },
-    { id: 'dbl-settlement', label: 'Stare decontare / refund', required: true },
-    { id: 'dbl-cause', label: 'Cauză internă (retry/timeout)', required: false },
+  'Double charge': [
+    { id: 'dbl-both', label: 'Both payments (ID + date + amount)', required: true },
+    { id: 'dbl-log', label: 'Processor log/report (duplication)', required: true },
+    { id: 'dbl-settlement', label: 'Settlement / refund status', required: true },
+    { id: 'dbl-cause', label: 'Internal cause (retry/timeout)', required: false },
   ],
-  Abonament: [
-    { id: 'sub-cancel', label: 'Cerere anulare (email/ticket)', required: true },
-    { id: 'sub-terms', label: 'Termeni plan (cancel/renewal)', required: true },
-    { id: 'sub-usage', label: 'Log folosire post-anulare', required: true },
-    { id: 'sub-confirm', label: 'Confirmare automată anulare', required: false },
+  'Subscription': [
+    { id: 'sub-cancel', label: 'Cancellation request (email/ticket)', required: true },
+    { id: 'sub-terms', label: 'Plan terms (cancel/renewal)', required: true },
+    { id: 'sub-usage', label: 'Usage log post-cancellation', required: true },
+    { id: 'sub-confirm', label: 'Automated cancellation confirmation', required: false },
   ],
-  Default: [
-    { id: 'gen-invoice', label: 'Factură / dovadă plată', required: true },
-    { id: 'gen-communication', label: 'Comunicare client', required: false },
+  'Default': [
+    { id: 'gen-invoice', label: 'Invoice / payment proof', required: true },
+    { id: 'gen-communication', label: 'Customer communication', required: false },
   ],
 };
 
@@ -80,7 +80,7 @@ const seedCases = () => {
     {
       id: 'CB-1024',
       status: 'Open',
-      reason: 'Fraudă',
+  reason: 'Fraud',
       amount: 480,
       currency: 'RON',
       probability: 0.78,
@@ -90,16 +90,16 @@ const seedCases = () => {
       deadline: now + 1000 * 60 * 60 * 55, // 55h
       letter: '',
       history: [{ at: now - 1000 * 60 * 60 * 5, text: 'Case created' }],
-  checklist: instantiateChecklist('Fraudă'),
+  checklist: instantiateChecklist('Fraud'),
       attachments: [],
       notes: [],
       activity: [{ id: 'a-'+now+'-0', at: now - 1000 * 60 * 60 * 5, text: 'Case created', type: 'system' }],
-      analysis: { reasons: ['3DS=DA', 'IP consistent'], rulesSummary: '3DS valid + device consistent → recomandare Fight' }
+  analysis: { reasons: ['3DS=YES', 'Consistent IP'], rulesSummary: 'Valid 3DS + consistent IP → Fight recommended' }
     },
     {
       id: 'CB-1025',
       status: 'In Progress',
-      reason: 'Nelivrat',
+  reason: 'Undelivered',
       amount: 1299,
       currency: 'RON',
       probability: 0.64,
@@ -109,16 +109,16 @@ const seedCases = () => {
       deadline: now + 1000 * 60 * 60 * 23, // 23h (red)
       letter: '',
       history: [{ at: now - 1000 * 60 * 60 * 7, text: 'Case created' }, { at: now - 1000 * 60 * 30, text: 'Evidence uploaded (AWB)' }],
-  checklist: instantiateChecklist('Nelivrat'),
+  checklist: instantiateChecklist('Undelivered'),
       attachments: [],
       notes: [],
       activity: [{ id: 'a-'+now+'-1', at: now - 1000 * 60 * 60 * 7, text: 'Case created', type: 'system' }],
-      analysis: { reasons: ['AWB lipsă încă'], rulesSummary: 'Lipsește dovada livrare → verifică AWB' }
+  analysis: { reasons: ['Tracking missing'], rulesSummary: 'Delivery proof missing → check tracking' }
     },
     {
       id: 'CB-1026',
       status: 'Sent',
-      reason: 'Dublă',
+  reason: 'Double charge',
       amount: 59,
       currency: 'EUR',
       probability: 0.42,
@@ -128,11 +128,11 @@ const seedCases = () => {
       deadline: now + 1000 * 60 * 60 * 120,
       letter: 'Draft existent ...',
       history: [{ at: now - 1000 * 60 * 60 * 15, text: 'Case created' }, { at: now - 1000 * 60 * 60 * 11, text: 'Letter sent' }],
-  checklist: instantiateChecklist('Dublă'),
+  checklist: instantiateChecklist('Double charge'),
       attachments: [],
       notes: [],
       activity: [{ id: 'a-'+now+'-2', at: now - 1000 * 60 * 60 * 15, text: 'Case created', type: 'system' }],
-      analysis: { reasons: ['Sumă mică', 'Dublare clară'], rulesSummary: 'Dublă confirmată → Refund economic' }
+  analysis: { reasons: ['Low amount', 'Clear duplication'], rulesSummary: 'Duplicate confirmed → Refund economical' }
     }
   ];
 };
@@ -303,8 +303,8 @@ export function CasesProvider({ children }) {
     const newProb = Math.min(0.95, Math.max(0.15, okCount / total * 0.9 + 0.1));
     const recommendation = newProb > 0.55 ? 'Fight' : 'Refund';
     const reasons = [
-      `${okCount}/${total} dovezi solide`,
-      recommendation === 'Fight' ? 'Argument favorabil' : 'Cost / șansă mică'
+      `${okCount}/${total} solid evidence items`,
+      recommendation === 'Fight' ? 'Favorable argument' : 'Low probability / cost weighs'
     ];
     setCases(prev => prev.map(c => c.id === id ? (() => {
       let updated = { ...c, probability: newProb, recommendation, analysis: { reasons, rulesSummary: reasons.join(' + ') }, lastUpdate: Date.now(), history:[...c.history,{at:Date.now(),text:'AI analysis regenerated'}] };
@@ -323,41 +323,41 @@ export function CasesProvider({ children }) {
     const chkOpt = target.checklist.filter(i=>!i.required);
     const fmtItem = i => `- ${i.label} [${i.status.toUpperCase()}]${i.naReason?` (N/A: ${i.naReason})`:''}${i.extracted?` -> ${i.extracted}`:''}`;
     const checklistSection = [
-      'SECȚIUNEA DOVEZI / CHECKLIST:',
-      'Obligatorii:',
-      chkReq.length ? chkReq.map(fmtItem).join('\n') : '(niciuna)',
-      'Opționale:',
-      chkOpt.length ? chkOpt.map(fmtItem).join('\n') : '(niciuna)'
+      'EVIDENCE / CHECKLIST SECTION:',
+      'Required:',
+      chkReq.length ? chkReq.map(fmtItem).join('\n') : '(none)',
+      'Optional:',
+      chkOpt.length ? chkOpt.map(fmtItem).join('\n') : '(none)'
     ].join('\n');
 
     // Attachments
-    const attachmentsSection = 'ATAȘAMENTE:\n' + (target.attachments.length ? target.attachments.map(a=>`- ${a.name} (${(a.size/1024).toFixed(1)} KB, ${a.type||'type necunoscut'})`).join('\n') : '(niciun fișier încărcat)');
+  const attachmentsSection = 'ATTACHMENTS:\n' + (target.attachments.length ? target.attachments.map(a=>`- ${a.name} (${(a.size/1024).toFixed(1)} KB, ${a.type||'unknown type'})`).join('\n') : '(no files uploaded)');
 
     // Notes (exclude system / dossier auto updates)
-    const userNotes = target.notes.filter(n => (n.author||'').toLowerCase() !== 'system' && !n.text.startsWith('Dosar actualizat'));
-    const notesSection = 'NOTIȚE INTERNE RELEVANTE:\n' + (userNotes.length ? userNotes.sort((a,b)=>a.at-b.at).map(n=>`- ${new Date(n.at).toLocaleDateString()} ${n.author||'User'}: ${n.text}`).join('\n') : '(niciuna)');
+  const userNotes = target.notes.filter(n => (n.author||'').toLowerCase() !== 'system' && !n.text.startsWith('Case updated'));
+  const notesSection = 'RELEVANT INTERNAL NOTES:\n' + (userNotes.length ? userNotes.sort((a,b)=>a.at-b.at).map(n=>`- ${new Date(n.at).toLocaleDateString()} ${n.author||'User'}: ${n.text}`).join('\n') : '(none)');
 
     // Dossier meta
-    const dossier = `DOSAR CAZ:\nMerchant: ${target.merchant_name || '(necunoscut)'}\nClient (mascat): ${target.customer_masked_name || '-'}\nEmail client (mascat): ${target.customer_masked_email || '-'}\nData tranzacției: ${target.transaction_date ? new Date(target.transaction_date).toLocaleDateString() : '(necunoscută)'}\nDescriere scurtă: ${target.short_description || '(lipsește)'}\nAcțiuni deja făcute: ${target.actions_taken || '(nicio acțiune menționată)'}`;
+  const dossier = `CASE DOSSIER:\nMerchant: ${target.merchant_name || '(unknown)'}\nCustomer (masked): ${target.customer_masked_name || '-'}\nCustomer email (masked): ${target.customer_masked_email || '-'}\nTransaction date: ${target.transaction_date ? new Date(target.transaction_date).toLocaleDateString() : '(unknown)'}\nShort description: ${target.short_description || '(missing)'}\nActions already taken: ${target.actions_taken || '(none)'}`;
 
     // Evidence summary (only OK)
-    const evid = target.checklist.filter(i => i.status === 'ok').map(i => `- ${i.label}${i.extracted?`: ${i.extracted}`:''}`).join('\n') || '(niciuna)';
-    const evidenceSummary = 'REZUMAT DOVEZI CHEIE (OK):\n' + evid;
+  const evid = target.checklist.filter(i => i.status === 'ok').map(i => `- ${i.label}${i.extracted?`: ${i.extracted}`:''}`).join('\n') || '(none)';
+  const evidenceSummary = 'KEY EVIDENCE SUMMARY (OK):\n' + evid;
 
     const intro = [
-      'CONTEXT CAZ PENTRU GENERARE SCRISOARE / ANALIZĂ AI',
-      `ID Caz: ${target.id}`,
-      `Motiv primar: ${target.reason}`,
-      `Sumă disputată: ${target.amount} ${target.currency}`,
-      `Owner intern: ${target.owner || '(neatribuit)'}`,
-      `Deadline intern (SLA): ${new Date(target.deadline).toLocaleString()}`,
-      'NOTĂ: Recomandarea AI curentă este deliberat exclusă din acest draft pentru a evita bias până la recalcularea modelului.',
+      'CASE CONTEXT FOR LETTER GENERATION / AI ANALYSIS',
+      `Case ID: ${target.id}`,
+      `Primary reason: ${target.reason}`,
+      `Disputed amount: ${target.amount} ${target.currency}`,
+      `Internal owner: ${target.owner || '(unassigned)'}`,
+      `Internal deadline (SLA): ${new Date(target.deadline).toLocaleString()}`,
+      'NOTE: Current AI recommendation intentionally excluded to avoid bias prior to model recalculation.',
       ''
     ].join('\n');
 
-    const argumentSkeleton = `ARGUMENT / STRUCTURĂ PROPUSĂ:\n1. Rezumat situație și motiv (fapte principale)\n2. Validare legală / contractuală (termeni, dovezi)\n3. Demontarea afirmațiilor clientului (dacă există)\n4. Dovezi tehnice / logistice cheie\n5. Concluzie + solicitare clară (menține fondurile / refuz chargeback)\n\n<Completează fiecare secțiune pe baza elementelor de mai sus.>`;
+  const argumentSkeleton = `ARGUMENT / PROPOSED STRUCTURE:\n1. Situation summary & reason (key facts)\n2. Contract / legal validation (terms, evidence)\n3. Address customer assertions (if any)\n4. Key technical / logistic evidence\n5. Conclusion + clear request (retain funds / deny chargeback)\n\n<Fill each section using the elements above.>`;
 
-    const disclaimer = `DISCLAIMER: Acest draft este generat din datele existente în aplicație și necesită revizuire umană. Verifică și maschează date sensibile (PII) înainte de trimitere.`;
+  const disclaimer = `DISCLAIMER: This draft is generated from current application data and requires human review. Verify & mask sensitive data (PII) before submission.`;
 
     // Structured JSON context (without AI recommendation) for optional downstream processing
     const structured = {
@@ -377,8 +377,8 @@ export function CasesProvider({ children }) {
       },
       checklist: target.checklist.map(i=>({ id:i.id, label:i.label, required:i.required, status:i.status, extracted:i.extracted||null, naReason:i.naReason||null })),
       attachments: target.attachments.map(a=>({ id:a.id, name:a.name, size:a.size, type:a.type })),
-      notes_internal: target.notes.filter(n => (n.author||'').toLowerCase() !== 'system' && !n.text.startsWith('Dosar actualizat')).map(n=>({ at:n.at, author:n.author, text:n.text })),
-      system_updates: target.notes.filter(n => (n.author||'').toLowerCase()==='system' || n.text.startsWith('Dosar actualizat')).map(n=>({ at:n.at, text:n.text }))
+  notes_internal: target.notes.filter(n => (n.author||'').toLowerCase() !== 'system' && !n.text.startsWith('Case updated')).map(n=>({ at:n.at, author:n.author, text:n.text })),
+  system_updates: target.notes.filter(n => (n.author||'').toLowerCase()==='system' || n.text.startsWith('Case updated')).map(n=>({ at:n.at, text:n.text }))
     };
 
     const draft = [
@@ -393,24 +393,24 @@ export function CasesProvider({ children }) {
       '',
       notesSection,
       '',
-  'CERINȚĂ PENTRU MOTORUL AI:',
-  'Te rog, pe baza informațiilor de mai sus (fără a folosi alte surse), să calculezi:',
-  '- Probabilitatea (în %) de a câștiga disputa',
-  '- Recomandarea strategică: Fight sau Refund',
-  'Formatează rezultatul exact în JSON pe o singură linie: {"probability": <numar 0-100>, "recommendation": "Fight|Refund" }',
-  'Nu adăuga explicații suplimentare în acea linie de output JSON. Explicațiile pot veni într-o secțiune separată dacă este nevoie.',
-  'Dacă nu poți estima cu datele furnizate, întoarce JSON: {"probability": null, "recommendation": "Refund" } și explică motivele separat.',
-  'NU folosi alt format, nu schimba cheile și nu adăuga alte câmpuri în acel JSON.',
+  'REQUEST FOR AI ENGINE:',
+  'Based strictly on the information above (no external sources), compute:',
+  '- Estimated win probability (%) for the dispute',
+  '- Strategic recommendation: Fight or Refund',
+  'Format the result EXACTLY as JSON on a single line: {"probability": <number 0-100>, "recommendation": "Fight|Refund" }',
+  'Do not add explanations on that JSON line. Explanations may follow separately if needed.',
+  'If you cannot estimate with given data, return JSON: {"probability": null, "recommendation": "Refund" } and explain separately.',
+  'DO NOT change keys/format or add fields in that JSON.',
   '',
-      'CONTEXT STRUCTURAT (JSON FĂRĂ RECOMANDARE AI):',
+  'STRUCTURED CONTEXT (JSON WITHOUT AI RECOMMENDATION):',
       JSON.stringify(structured, null, 2),
       '',
       argumentSkeleton,
       '',
       disclaimer,
       '',
-      'Cu stimă,',
-      'Echipa Merchant'
+  'Best regards,',
+  'Merchant Team'
     ].join('\n');
 
     const hash = Array.from(draft).reduce((h,ch)=>((h<<5)-h)+ch.charCodeAt(0)|0,0).toString(16);
@@ -463,20 +463,20 @@ export function CasesProvider({ children }) {
     const prob = typeof probabilityPercent === 'number' && probabilityPercent >=0 ? Math.min(1, Math.max(0, probabilityPercent/100)) : null;
     setCases(prev => prev.map(c => c.id === id ? (() => {
       if(prob===null && !recommendation) return c; // nothing to apply
-      const reasons = [`Chat AI aplicat (${prob!==null? probabilityPercent+'%':'fără procent'})`];
+  const reasons = [`Chat AI applied (${prob!==null? probabilityPercent+'%':'no percent'})`];
       let updated = { ...c, lastUpdate: Date.now(), history:[...c.history,{ at: Date.now(), text:`Chat AI applied (${probabilityPercent!=null?probabilityPercent+'% ':''}${recommendation||''})` }] };
       if(prob!==null) updated.probability = prob;
       if(recommendation) updated.recommendation = recommendation;
   updated.aiAnalysisApplied = true;
       // Optional: inject / refresh lines in existing letter (if any) so UI reflects new values immediately
       if(updated.letter){
-        const pctLine = prob!==null ? `Probabilitate câștig estimată: ${probabilityPercent}%` : null;
-        const recLine = recommendation ? `Recomandare AI: ${recommendation}` : null;
+        const pctLine = prob!==null ? `Estimated win probability: ${probabilityPercent}%` : null;
+        const recLine = recommendation ? `AI Recommendation: ${recommendation}` : null;
         const lines = updated.letter.split(/\n/);
         let foundRec = false, foundProb = false;
         for(let i=0;i<lines.length;i++){
-          if(recLine && /^Recomandare AI:/i.test(lines[i])){ lines[i]=recLine; foundRec=true; }
-          if(pctLine && /^Probabilitate câștig estimată:/i.test(lines[i])){ lines[i]=pctLine; foundProb=true; }
+          if(recLine && /^AI Recommendation:/i.test(lines[i])){ lines[i]=recLine; foundRec=true; }
+          if(pctLine && /^Estimated win probability:/i.test(lines[i])){ lines[i]=pctLine; foundProb=true; }
         }
         // Insert near top (after first non-empty line) if not present
         const insertPos = Math.min(5, lines.findIndex(l=>l.trim()==='')>-1? lines.findIndex(l=>l.trim()===''):lines.length); // early section
@@ -506,7 +506,7 @@ export function CasesProvider({ children }) {
     setCases(prev => [ensureCaseShape({
       id: base.id || ('CB-DISP-'+Math.floor(1000+Math.random()*9000)),
       status: base.status || 'Open',
-      reason: base.reason || 'Dispută',
+  reason: base.reason || 'Dispute',
       amount: base.amount || 0,
       currency: base.currency || 'RON',
       probability: base.probability ?? 0.5,

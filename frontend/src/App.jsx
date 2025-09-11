@@ -9,8 +9,8 @@ import CasesPage from './pages/cases/Cases';
 import CaseDetails from './pages/cases/CaseDetails';
 import { CasesProvider } from './pages/cases/CasesContext';
 import AnalyticsPage from './pages/cases/Analytics';
-import AIChat from "./pages/aiassistant/AIChat.jsx";
 import Profile from "./pages/profiles/Profile.jsx";
+import AIChat from "./pages/aiassistant/AIChat.jsx"; // restored
 
 function RequireAuth({ children }) {
     // Simple client guard (localStorage token presence)

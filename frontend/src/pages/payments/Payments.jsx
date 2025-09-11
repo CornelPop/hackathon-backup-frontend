@@ -316,7 +316,7 @@ export default function Payments({ onPay}) {
                                               }}>Cancel</Button>
                                         </Space>
                                     </div>
-                                    <div style={{fontSize:11,opacity:.65,lineHeight:1.4}}>Link-ul rămâne OPEN până clientul finalizează; simularea alege aleator un profil client din baza locală și aplică logica reală (SUCCESSFUL / FAILED / FLAGGED + auto-case).</div>
+                                    <div style={{fontSize:11,opacity:.65,lineHeight:1.4}}>Link stays OPEN until the customer completes it; simulation randomly selects a client profile from local seed and applies real logic (SUCCESSFUL / FAILED / FLAGGED + auto-case).</div>
                                     <Divider style={{margin:'4px 0'}} />
                                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
                                         <span style={{fontSize:12,fontWeight:600}}>Simulează finalizarea de către client</span>
@@ -332,8 +332,8 @@ export default function Payments({ onPay}) {
                                                 </div>
                                             </div>
                                         )}
-                                        {simError && <div style={{color:'#cf1322',fontSize:11}}>Eroare: {simError}</div>}
-                                        <div style={{fontSize:11,opacity:.55}}>Algoritm: profil reason SUCCESSFUL -&gt; SUCCESSFUL, FAILED -&gt; FAILED, motiv dispută -&gt; FLAGGED (+ caz); altfel fallback SUCCESSFUL.</div>
+                                        {simError && <div style={{color:'#cf1322',fontSize:11}}>Error: {simError}</div>}
+                                        <div style={{fontSize:11,opacity:.55}}>Algorithm: client profile reason SUCCESSFUL -&gt; SUCCESSFUL, FAILED -&gt; FAILED, dispute reason -&gt; FLAGGED (+ case); else fallback SUCCESSFUL.</div>
                                     </div>
                                 </div>
                             )}
